@@ -1,0 +1,2 @@
+n_patients,n_modalities,n_gex_features,n_cnv_features,n_rppa_features,n_mutation_features,n_meth_features,n_clinical_features,n_total_features,n_events,cens_rate
+81,6,2000,2000,190,2000,2000,3,8193,48,0.41

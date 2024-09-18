@@ -1,0 +1,2 @@
+n_patients,n_modalities,n_snv,n_cnv,n_indel,n_path,n_clinical,n_total_features,n_events,cens_rate
+71,5,274,178,63,794,10,1319,47,0.34
