@@ -169,6 +169,23 @@
       ],
       "Hash": "543776ae6848fde2f48ff3816d0628bc"
     },
+    "bbotk": {
+      "Package": "bbotk",
+      "Version": "1.1.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "R6",
+        "checkmate",
+        "data.table",
+        "lgr",
+        "methods",
+        "mlr3misc",
+        "paradox"
+      ],
+      "Hash": "f567c7620152fc38663112b851a5c761"
+    },
     "bit": {
       "Package": "bit",
       "Version": "4.0.5",
@@ -518,13 +535,13 @@
       "Package": "distr6",
       "Version": "1.8.4",
       "Source": "GitHub",
-      "Remotes": "xoopR/set6, xoopR/param6",
       "RemoteType": "github",
       "RemoteHost": "api.github.com",
-      "RemoteRepo": "distr6",
       "RemoteUsername": "xoopR",
-      "RemoteRef": "HEAD",
+      "RemoteRepo": "distr6",
+      "RemoteRef": "main",
       "RemoteSha": "a642cd312c51fba7ede7336036f907dbe279889e",
+      "Remotes": "xoopR/set6, xoopR/param6",
       "Requirements": [
         "R6",
         "Rcpp",
@@ -535,7 +552,7 @@
         "set6",
         "stats"
       ],
-      "Hash": "63de60f64053a95ae8a210f1dd15114b"
+      "Hash": "5a5afc70c3794a7a67f9edfa93ca164e"
     },
     "dplyr": {
       "Package": "dplyr",
@@ -1213,7 +1230,7 @@
     },
     "mlr3": {
       "Package": "mlr3",
-      "Version": "0.20.2",
+      "Version": "0.21.0",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
@@ -1234,7 +1251,55 @@
         "parallelly",
         "uuid"
       ],
-      "Hash": "2e5225a210cef7155a2899a4d16f1cf2"
+      "Hash": "f7414ff6a1b860122bb75c1b74c24cbb"
+    },
+    "mlr3extralearners": {
+      "Package": "mlr3extralearners",
+      "Version": "0.9.0-9000",
+      "Source": "GitHub",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteUsername": "mlr-org",
+      "RemoteRepo": "mlr3extralearners",
+      "RemoteRef": "c9503ffd530346f4e49a0fb414c01c7c5e189b0c",
+      "RemoteSha": "c9503ffd530346f4e49a0fb414c01c7c5e189b0c",
+      "Remotes": "binderh/CoxBoost, catboost/catboost/catboost/R-package, mlr-org/mlr3proba, RaphaelS1/survivalmodels, PlantedML/randomPlantedForest, xoopR/distr6, xoopR/param6, xoopR/set6, ropensci/aorsf, mlr-org/mlr3",
+      "Requirements": [
+        "R",
+        "R6",
+        "checkmate",
+        "data.table",
+        "methods",
+        "mlr3",
+        "mlr3misc",
+        "paradox"
+      ],
+      "Hash": "79516dc9360a6da3887f3f5b2241b0ec"
+    },
+    "mlr3fselect": {
+      "Package": "mlr3fselect",
+      "Version": "1.1.0.9000",
+      "Source": "GitHub",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteUsername": "mlr-org",
+      "RemoteRepo": "mlr3fselect",
+      "RemoteRef": "f2ccbda1cae2845044ebc1262cb376e9f918e160",
+      "RemoteSha": "f2ccbda1cae2845044ebc1262cb376e9f918e160",
+      "Requirements": [
+        "R",
+        "R6",
+        "Rcpp",
+        "bbotk",
+        "checkmate",
+        "data.table",
+        "lgr",
+        "mlr3",
+        "mlr3misc",
+        "paradox",
+        "stabm"
+      ],
+      "Hash": "58f8f50cd40c42441a9f6a80c8a772fe"
     },
     "mlr3measures": {
       "Package": "mlr3measures",
@@ -1272,8 +1337,15 @@
     },
     "mlr3proba": {
       "Package": "mlr3proba",
-      "Version": "0.6.7",
-      "Source": "unknown",
+      "Version": "0.6.9",
+      "Source": "GitHub",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteUsername": "mlr-org",
+      "RemoteRepo": "mlr3proba",
+      "RemoteRef": "main",
+      "RemoteSha": "45a5b7977162a2885777b0285f93858ebc7f9319",
+      "Remotes": "xoopR/distr6, xoopR/param6, xoopR/set6",
       "Requirements": [
         "R",
         "R6",
@@ -1288,7 +1360,7 @@
         "paradox",
         "survival"
       ],
-      "Hash": "8de3fcb0b0c244bff8436d74ac9b0b47"
+      "Hash": "f68145e8c7461909642c329aaadd8540"
     },
     "mlr3viz": {
       "Package": "mlr3viz",
@@ -1453,13 +1525,12 @@
       "Version": "0.2.4",
       "Source": "GitHub",
       "RemoteType": "github",
-      "Remotes": "xoopR/set6",
       "RemoteHost": "api.github.com",
-      "RemoteRepo": "param6",
       "RemoteUsername": "xoopR",
-      "RemotePkgRef": "xoopR/param6",
-      "RemoteRef": "HEAD",
+      "RemoteRepo": "param6",
+      "RemoteRef": "main",
       "RemoteSha": "0fa35771276fc05efe007a71bda466ced1e4c5eb",
+      "Remotes": "xoopR/set6",
       "Requirements": [
         "R6",
         "checkmate",
@@ -1467,7 +1538,7 @@
         "dictionar6",
         "set6"
       ],
-      "Hash": "5b753f7d094358dd870b0506dcc715fd"
+      "Hash": "f6948611ff164d8375e70fb49c15eed7"
     },
     "pillar": {
       "Package": "pillar",
@@ -1912,10 +1983,9 @@
       "Source": "GitHub",
       "RemoteType": "github",
       "RemoteHost": "api.github.com",
-      "RemoteRepo": "set6",
       "RemoteUsername": "xoopR",
-      "RemotePkgRef": "xoopR/set6",
-      "RemoteRef": "HEAD",
+      "RemoteRepo": "set6",
+      "RemoteRef": "main",
       "RemoteSha": "a901255c26614a0ece317dc849621420f9393d42",
       "Requirements": [
         "R6",
@@ -1924,7 +1994,7 @@
         "ooplah",
         "utils"
       ],
-      "Hash": "884a34275d6c91af260c199e5135c631"
+      "Hash": "819facf7dcf2fea85e25142900ae176e"
     },
     "shape": {
       "Package": "shape",
@@ -1938,6 +2008,21 @@
         "stats"
       ],
       "Hash": "5c47e84dc0a3ca761ae1d307889e796d"
+    },
+    "stabm": {
+      "Package": "stabm",
+      "Version": "1.2.2",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "Matrix",
+        "R",
+        "checkmate",
+        "methods",
+        "stats",
+        "utils"
+      ],
+      "Hash": "40255a660f4c132a017fee4239e39dbd"
     },
     "stringi": {
       "Package": "stringi",
