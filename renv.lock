@@ -254,9 +254,14 @@
     },
     "bbotk": {
       "Package": "bbotk",
-      "Version": "1.1.0",
-      "Source": "Repository",
-      "Repository": "CRAN",
+      "Version": "1.2.0.9000",
+      "Source": "GitHub",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteUsername": "mlr-org",
+      "RemoteRepo": "bbotk",
+      "RemoteRef": "main",
+      "RemoteSha": "201ddeee6473ec9e4d8139fec752067ff415a8f6",
       "Requirements": [
         "R",
         "R6",
@@ -267,7 +272,7 @@
         "mlr3misc",
         "paradox"
       ],
-      "Hash": "f567c7620152fc38663112b851a5c761"
+      "Hash": "108349df00d71841b0ee806d73def455"
     },
     "bit": {
       "Package": "bit",
@@ -1390,7 +1395,7 @@
     },
     "mlr3": {
       "Package": "mlr3",
-      "Version": "0.21.0",
+      "Version": "0.21.1",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
@@ -1411,7 +1416,7 @@
         "parallelly",
         "uuid"
       ],
-      "Hash": "f7414ff6a1b860122bb75c1b74c24cbb"
+      "Hash": "09408d75c7e8b0aae2870a82da85e990"
     },
     "mlr3extralearners": {
       "Package": "mlr3extralearners",
@@ -1438,14 +1443,15 @@
     },
     "mlr3fselect": {
       "Package": "mlr3fselect",
-      "Version": "1.1.0.9000",
+      "Version": "1.1.1.9000",
       "Source": "GitHub",
       "RemoteType": "github",
       "RemoteHost": "api.github.com",
       "RemoteUsername": "mlr-org",
       "RemoteRepo": "mlr3fselect",
-      "RemoteRef": "2d21fc72df187089d10040071e65bdf7ae2c0183",
-      "RemoteSha": "2d21fc72df187089d10040071e65bdf7ae2c0183",
+      "RemoteRef": "4137404e8486c0d46941b6e9483ce07c0cd291c3",
+      "RemoteSha": "4137404e8486c0d46941b6e9483ce07c0cd291c3",
+      "Remotes": "mlr-org/bbotk",
       "Requirements": [
         "R",
         "R6",
@@ -1459,7 +1465,7 @@
         "paradox",
         "stabm"
       ],
-      "Hash": "227e6dc86dee6f6ef8190b623c215c93"
+      "Hash": "15ceaa14e66498095adafa533d00d739"
     },
     "mlr3measures": {
       "Package": "mlr3measures",
