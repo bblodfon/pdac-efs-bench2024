@@ -56,8 +56,18 @@ repeats = 100 # how many subsamples
 ratio = 0.9 # % of data for training/tuning/fs
 init_rsmp = rsmp("subsampling", repeats = repeats, ratio = ratio)
 n_features = 2 # RFE => stopping criterion (run up to this number of features)
-feature_fraction = 0.8 # RFE => keep 80% of features in each RFE iteration
-rfe = fs("rfe", n_features = n_features, feature_fraction = feature_fraction)
+feature_fraction = 0.8 # RFE => keep this % of features in each RFE iteration
+# feature subset sizes for RFE, given we go from n => 2, keeping 80% each time
+n = task$n_features
+subset_sizes = unique(floor(cumprod(c(n, rep(feature_fraction, log(n_features / n) / log(feature_fraction))))))
+num_subsets = 15 # RFE iterations => we don't want to do more than this due to RAM issues
+if (length(subset_sizes) > num_subsets) {
+  # thin the feature subsets to 15 values in total
+  indx = unique(round(seq.int(1, length(subset_sizes), length.out = num_subsets)))
+  subset_sizes = subset_sizes[indx]
+}
+print(paste0(length(subset_sizes), " feature subset sizes (RFE): ",  paste0(subset_sizes, collapse = ",")))
+rfe = fs("rfe", subset_sizes = subset_sizes)
 rfe_test = fs("rfe", subset_sizes = c(as.integer((task$n_features)/2), 2)) # for testing
 measure = msr("surv.cindex") # measure used in 1) RFE optimization 2) scoring the
 # test sets of `init_rsmp` 3) for tuning, using the train set's of `init_rsmp`
@@ -205,12 +215,12 @@ coxboost = lrn("surv.cv_coxboost", id = "coxboost", standardize = TRUE,
                return.score = FALSE, penalty = "optimCoxBoostPenalty",
                maxstepno = nrounds, K = folds)
 ## CoxLasso ----
-# Does internal CV tuning of lambda (choose lambda based on the `1se` rule)
+# Does internal CV tuning of lambda (choose lambda that's within 1se from min or min)
 coxlasso = lrn("surv.cv_glmnet", id = "coxlasso", standardize = TRUE, alpha = 1,
-               nfolds = folds, type.measure = "C", s = "lambda.1se")
+               nfolds = folds, type.measure = "C", s = "lambda.min")
 
 # EFS runs ----
-if (FALSE) {
+if (TRUE) {
 ## Tree ----
 set.seed(42) # reproduce: same subsampling
 sprintf("# Wrapper-based efs with %s - %i learner(s)", "SURVIVAL TREE", length(tree_lrn))
@@ -262,7 +272,7 @@ efs_rsf$.__enclos_env__$private$.measure_id = "surv.cindex"
 efs_rsf$.__enclos_env__$private$.minimize = FALSE
 
 saveRDS(efs_rsf, paste0(task$id, "_efs_rsf.rds"))
-
+}
 ## XGBOOST ----
 sprintf("# Wrapper-based efs with %s - %i learner(s)", "XGBOOST", length(xgb_lrns))
 tic()
@@ -284,7 +294,7 @@ efs_xgb = ensemble_fselect(
 })
 toc()
 saveRDS(efs_xgb, paste0(task$id, "_efs_xgb.rds"))
-}
+
 ## glmboost ----
 sprintf("# Embedded efs with %s - %i learner(s)", "GLMBOOST", length(glmb_lrns))
 tic()
