@@ -28,7 +28,7 @@ create_xgb_lrn = function(id, params, aft_loss = NULL) {
 }
 
 # convenience function to create a glmboost AutoTuner learner
-create_glmb_at = function(id, family = "coxph", params) {
+create_glmb_at = function(id = "glmb_cox", family = "coxph", params) {
   checkmate::assert_list(params, len = 4, any.missing = FALSE, null.ok = FALSE)
   checkmate::check_subset(
     x = names(params),
@@ -40,10 +40,10 @@ create_glmb_at = function(id, family = "coxph", params) {
   measure = params$measure
   evals = params$evals
 
-  learner = lrn("surv.glmboost", id = id, family = family, center = TRUE)
+  learner = lrn("surv.glmboost", family = family, center = TRUE)
 
   suppressWarnings({
-    auto_tuner(
+    at = auto_tuner(
       learner = learner,
       search_space = search_space,
       resampling = inner_rsmp,
@@ -55,7 +55,10 @@ create_glmb_at = function(id, family = "coxph", params) {
       store_models = FALSE,
       callbacks = NULL # no 1se rule exists yet
     )
+    at$id = id
   })
+
+  at
 }
 
 # hackily put as measure the C-index = 1 - OOB_ERROR
@@ -75,4 +78,17 @@ rm_zero_feat = function(efs) {
 # hackily remove importance column as this is not needed
 rm_imp = function(efs) {
   efs$.__enclos_env__$private$.result$importance = NULL
+}
+
+# given a list of `EnsembleFSResult`s, executed using the same `task`, return
+# the combined `EnsembleFSResult`
+cmb_efs = function(efs_list, features, measure_id = "surv.cindex", minimize = FALSE) {
+  result = mlr3misc::map_dtr(efs_list, .f = function(x) x$result)
+
+  EnsembleFSResult$new(
+    result = result,
+    features = features,
+    measure_id = measure_id,
+    minimize = minimize
+  )
 }
