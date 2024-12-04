@@ -2,9 +2,16 @@
 #' "The Molecular Twin artificial-intelligence platform integrates multi-omic data
 #' to predict outcomes for pancreatic adenocarcinoma patients"
 #' Execute: `Rscript data/osipov2024/preprocess_osipov.R`
-suppressPackageStartupMessages(library(tidyverse))
-library(mlr3proba)
-library(usefun)
+suppressPackageStartupMessages({
+  library(mlr3proba)
+  library(mlr3misc)
+  library(caret)
+  library(dplyr)
+  library(readr)
+  library(tibble)
+  library(usefun)
+  library(ComplexHeatmap)
+})
 
 #' Download "Source Data Fig. 1" from the paper webpage:
 #' https://www.nature.com/articles/s43018-023-00697-7#Sec38
@@ -84,7 +91,7 @@ clinical = clinical |>
   select(-clinical_merged_ethnicity_ord)
 
 # check missing clinical features => no missing features
-map(clinical, \(.x) sum(is.na(.x)))
+mlr3misc::map(clinical, \(.x) sum(is.na(.x)))
 stopifnot(nrow(clinical) == nrow(all_data))
 clinical_complete_ids = clinical |> complete.cases() |> which()
 clinical
@@ -104,7 +111,7 @@ length(gex_ids) # 57
 ncol(gex) # 2000
 stopifnot(nrow(gex) == nrow(all_data))
 counts = gex |> unlist()
-sum(counts < 0, na.rm = TRUE) # normalized counts, always > 0
+all(counts >= 0, na.rm = TRUE) # normalized count data, always > 0
 
 ## FUSION GENES ----
 fgex = all_data |>
@@ -159,8 +166,8 @@ cnv = all_data |>
   rename_with(make.names)
 
 # kinda continuous features, with lots of zeros and centered
-summary(map_dbl(cnv, \(.x) mean(.x, na.rm = TRUE))) # mean ~ 0
-summary(map_dbl(cnv, \(.x) sd(.x, na.rm = TRUE))) # mean ~ 0.1
+summary(mlr3misc::map_dbl(cnv, \(.x) mean(.x, na.rm = TRUE))) # mean ~ 0
+summary(mlr3misc::map_dbl(cnv, \(.x) sd(.x, na.rm = TRUE))) # mean ~ 0.1
 
 # variance filtering leaves only ~16 features so we don't do it
 feats_flt = cnv |>
@@ -269,11 +276,16 @@ ids_list = list(clinical = clinical_complete_ids, gex = gex_ids, fgex = fgex_ids
                 snv = snv_ids, cnv = cnv_ids,indel = indel_ids, path = path_ids,
                 plasma_protein = plasma_protein_ids, plasma_lipid = plasma_lipid_ids,
                 tissue_protein = tissue_protein_ids)
-res = powerset_icounts(ids_list)
+res = usefun::powerset_icounts(ids_list)
 # at least 3 modalities, more than 60 patients with all data
 res |>
   filter(num_subsets >= 3, count > 60) |>
   arrange(desc(count), desc(num_subsets))
+
+# make UpSet plot
+m = make_comb_mat(ids_list, mode = "intersect")
+m2 = m[comb_size(m) > 60 & comb_degree(m) >= 3] # filtering same as above
+UpSet(m2, comb_order = order(comb_size(m2)))
 
 # best combo to keep: clinical-snv-cnv-indel-path
 ids_to_keep = res |>
@@ -290,17 +302,17 @@ data_list = list(
 )
 
 # nrows the same
-stopifnot(all(map(data_list, nrow) == length(ids_to_keep)))
+stopifnot(all(mlr3misc::map(data_list, nrow) == length(ids_to_keep)))
 
 # no missing data in general
-map(data_list, function(.data) {
+mlr3misc::map(data_list, function(.data) {
   .data |> as.matrix() |> as.vector() |> is.na() |> sum()
 })
 
 # SURVIVAL TASKS ----
 survival_outcome = data_list$clinical |> select(patient_id, time, status)
 
-surv_task_list = map(names(data_list), function(.data_name) {
+surv_task_list = mlr3misc::map(names(data_list), function(.data_name) {
   if (.data_name == "clinical") {
     data = data_list[[.data_name]]
   } else {
