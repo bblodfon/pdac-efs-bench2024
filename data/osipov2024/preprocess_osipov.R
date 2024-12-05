@@ -336,7 +336,7 @@ classif_outcome =
   mutate(status = if_else(status == 1, "Dead", "Alive")) |>
   select(patient_id, status)
 
-classif_task_list = map(names(data_list), function(.data_name) {
+classif_task_list = mlr3misc::map(names(data_list), function(.data_name) {
   if (.data_name == "clinical") {
     data = data_list[["clinical"]] |> select(-c(time, status, patient_id))
     data = bind_cols(classif_outcome, data)
@@ -385,21 +385,21 @@ metadata = tibble(
   n_indel = surv_task_list$indel$n_features,
   n_path = surv_task_list$path$n_features,
   n_clinical = surv_task_list$clinical$n_features,
-  n_total_features = sum(map_int(surv_task_list, \(.t) {.t$n_features})),
+  n_total_features = sum(mlr3misc::map_int(surv_task_list, \(.t) {.t$n_features})),
   n_events = sum(surv_task_list$clinical$status() == 1),
   cens_rate = round(surv_task_list$clinical$cens_prop(), digits = 2)
 )
 print(metadata)
 
 # SAVE ALL DATA TO FILES ----
-saveRDS(surv_task_list, file = "data/osipov2024/surv_task_list.rds")
-saveRDS(classif_task_list, file = "data/osipov2024/classif_task_list.rds")
-saveRDS(part, file = "data/osipov2024/data_split.rds")
-write_csv(metadata, file = "data/osipov2024/metadata.csv")
-
-all_data_preprocessed = bind_cols(data_list)
-write_csv(all_data_preprocessed, file = "data/osipov2024/all_data_preprocessed.csv")
-write_csv(all_data_preprocessed[part$train, ],
-          file = "data/osipov2024/all_data_preprocessed_train.csv")
-write_csv(all_data_preprocessed[part$test, ],
-          file = "data/osipov2024/all_data_preprocessed_test.csv")
+# saveRDS(surv_task_list, file = "data/osipov2024/surv_task_list.rds")
+# saveRDS(classif_task_list, file = "data/osipov2024/classif_task_list.rds")
+# saveRDS(part, file = "data/osipov2024/data_split.rds")
+# write_csv(metadata, file = "data/osipov2024/metadata.csv")
+#
+# all_data_preprocessed = bind_cols(data_list)
+# write_csv(all_data_preprocessed, file = "data/osipov2024/all_data_preprocessed.csv")
+# write_csv(all_data_preprocessed[part$train, ],
+#           file = "data/osipov2024/all_data_preprocessed_train.csv")
+# write_csv(all_data_preprocessed[part$test, ],
+#           file = "data/osipov2024/all_data_preprocessed_test.csv")

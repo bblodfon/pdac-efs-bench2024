@@ -1,8 +1,16 @@
 #' Extract PDAC multi-omics data from Wissel et al. (2023)
 #' "Systematic comparison of multi-omics survival models reveals a widespread lack of noise resistance"
 #' Execute: `Rscript data/wissel2023/preprocess_wissel.R`
-suppressPackageStartupMessages(library(tidyverse))
-library(mlr3proba)
+suppressPackageStartupMessages({
+  library(mlr3proba)
+  library(mlr3misc)
+  library(caret)
+  library(dplyr)
+  library(readr)
+  library(tibble)
+  library(usefun)
+  library(ComplexHeatmap)
+})
 
 #' Download from Zenodo (https://zenodo.org/records/7529459) the `preprocessed.zip` file
 #' Get the `PAAD_data_preprocessed.csv` file
@@ -75,7 +83,7 @@ clinical = clinical |>
   mutate(status = as.numeric(status))
 
 # check missing clinical features => no missing features
-map(clinical, \(.x) sum(is.na(.x)))
+mlr3misc::map(clinical, \(.x) sum(is.na(.x)))
 
 # OMICS (6) ----
 # see "SurvBoard: Standardised Benchmarking for Multi-omics Cancer Survival Models"
@@ -131,20 +139,20 @@ data_list = list(clinical = clinical, gex = gex, cnv = cnv, rppa = rppa,
                  mutation = mutation, meth = meth)
 
 # nrows the same
-stopifnot(all(map(data_list, nrow) == length(ids_to_keep)))
+stopifnot(all(mlr3misc::map(data_list, nrow) == length(ids_to_keep)))
 
 # nfeatures is correct
 #' `patient_id`, `race`, `histological_type` and miRNAs are not included
-stopifnot(sum(map_dbl(data_list, ncol)) == ncol(all_data) - 3 - ncol(mirna))
+stopifnot(sum(mlr3misc::map_dbl(data_list, ncol)) == ncol(all_data) - 3 - ncol(mirna))
 
 # no missing data in general
-map(data_list, function(.data) {
+mlr3misc::map(data_list, function(.data) {
   .data |> as.matrix() |> as.vector() |> is.na() |> sum()
 })
 
 # keep only the top 2000 features with the highest variance per omic
 n_features = 2000
-data_list = map(data_list, function(.data) {
+data_list = mlr3misc::map(data_list, function(.data) {
   if (ncol(.data) > n_features) {
     features_to_keep =
       apply(.data, 2, var) |>
@@ -161,7 +169,7 @@ data_list = map(data_list, function(.data) {
 # TASKS ----
 survival_outcome = data_list$clinical |> select(patient_id, time, status)
 
-task_list = map(names(data_list), function(.data_name) {
+task_list = mlr3misc::map(names(data_list), function(.data_name) {
   if (.data_name == "clinical") {
     data = data_list[["clinical"]]
   } else {
@@ -212,7 +220,7 @@ metadata = tibble(
   n_mutation_features = task_list$mutation$n_features,
   n_meth_features = task_list$meth$n_features,
   n_clinical_features = task_list$clinical$n_features,
-  n_total_features = sum(map_int(task_list, \(.t) {.t$n_features})),
+  n_total_features = sum(mlr3misc::map_int(task_list, \(.t) {.t$n_features})),
   n_events = sum(task_list$clinical$status() == 1),
   cens_rate = round(task_list$clinical$cens_prop(), digits = 2)
 )
