@@ -66,7 +66,7 @@ rfe = fs("rfe")
 # rfe = fs("rfe", subset_sizes = c(as.integer((task$n_features)/2), 2)) # for testing
 terminator = trm("none") # RFE => never stop iters, defined by `subset_sizes`
 store_bmr = FALSE
-repeats = 3 # how many subsamples
+repeats = 50 # how many subsamples
 ratio = 0.8 # % of data for training/tuning/fs
 init_rsmp = rsmp("subsampling", repeats = repeats, ratio = ratio)
 ss_clbk = clbk("mlr3fselect.rfe_subset_sizes") # random subset sizes
