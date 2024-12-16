@@ -27,7 +27,7 @@ create_xgb_lrn = function(id, params, aft_loss = NULL) {
   }
 }
 
-# convenience function to create a glmboost AutoTuner learner
+# convenience function to create a glmboost `AutoTuner` learner
 create_glmb_at = function(id = "glmb_cox", family = "coxph", params) {
   checkmate::assert_list(params, len = 4, any.missing = FALSE, null.ok = FALSE)
   checkmate::check_subset(
@@ -61,35 +61,20 @@ create_glmb_at = function(id = "glmb_cox", family = "coxph", params) {
   at
 }
 
-# hackily remove rows which had 0 features selected (due to whatever reason)
+# hack: remove rows which had 0 features selected (due to whatever reason)
 # from an `EnsembleFSResult` result (mostly applies to the embedded efs methods)
 rm_zero_feat = function(efs) {
   efs$.__enclos_env__$private$.result = efs$.__enclos_env__$private$.result[n_features > 0]
 }
 
-# hackily remove importance column as this is not used anywhere in this project
+# hack: remove importance column as this is not used anywhere in this project
 rm_imp = function(efs) {
   efs$.__enclos_env__$private$.result$importance = NULL
 }
 
 # hack: put as measure the C-index = 1 - OOB_ERROR for RSFs
 oob_to_cindex_convert = function(efs) {
-  # explicitly set as `bmr_score` class creates problems with next command
-  data.table::setDT(efs$.__enclos_env__$private$.result)
   efs$.__enclos_env__$private$.result[, surv.cindex_inner := 1 - oob_error_inner]
   efs$.__enclos_env__$private$.result$oob_error_inner = NULL
   efs$.__enclos_env__$private$.inner_measure = msr("surv.cindex")
-}
-
-# given a list of `EnsembleFSResult`s, executed using the same `task`, return
-# the combined `EnsembleFSResult`
-cmb_efs = function(efs_list, features, measure, inner_measure) {
-  result = mlr3misc::map_dtr(efs_list, .f = function(x) x$result, .fill = TRUE)
-
-  EnsembleFSResult$new(
-    result = result,
-    features = features,
-    measure = measure,
-    inner_measure = inner_measure
-  )
 }
