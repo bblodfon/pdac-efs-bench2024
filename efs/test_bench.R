@@ -19,6 +19,7 @@ library(progressr)
 library(tictoc)
 })
 source("efs/helpers.R")
+source("efs/callbacks.R")
 
 # SETUP CONFIG ----
 # Parallelization of XGBoost
@@ -41,7 +42,7 @@ handlers("progress")
 
 # TASK ----
 task = readRDS(file = "data/wissel2023/task_list.rds")$gex # GEX - TCGA
-#task = readRDS(file = "data/osipov2024/surv_task_list.rds")$snv # SNV - Wissel
+# task = readRDS(file = "data/osipov2024/surv_task_list.rds")$snv # SNV - Wissel
 # task = tsk("gbcs") # German Breast Cancer data for testing
 
 # stratify by status
@@ -61,38 +62,55 @@ nrounds_early = 42 # early stopping rounds (for xgboost, should be < nrounds)
 max_depth = 6 # for xgboost
 
 # efs parameters
-repeats = 100 # how many subsamples
+rfe = fs("rfe")
+# rfe = fs("rfe", subset_sizes = c(as.integer((task$n_features)/2), 2)) # for testing
+terminator = trm("none") # RFE => never stop iters, defined by `subset_sizes`
+store_bmr = FALSE
+repeats = 3 # how many subsamples
 ratio = 0.8 # % of data for training/tuning/fs
 init_rsmp = rsmp("subsampling", repeats = repeats, ratio = ratio)
-terminator = trm("none") # RFE => never stop until you've reached `n_features`
-n_features = 2 # RFE => stopping criterion (run up to this number of features)
-feature_fraction = 0.8 # RFE => keep this % of features in each RFE iteration
-# feature subset sizes for RFE, given we go from n => 2, keeping 80% each time
-n = task$n_features
-subset_sizes = unique(floor(cumprod(c(n, rep(feature_fraction, log(n_features / n) / log(feature_fraction))))))
-num_subsets = 15 # RFE iterations => we don't want to do more than this due to RAM issues
-if (length(subset_sizes) > num_subsets) {
-  # thin the feature subsets to 15 values in total
-  indx = unique(round(seq.int(1, length(subset_sizes), length.out = num_subsets)))
-  subset_sizes = subset_sizes[indx]
+ss_clbk = clbk("mlr3fselect.rfe_subset_sizes") # random subset sizes
+#' `size` => how many RFE iters (subset sizes)
+#' `shape2` => beta distr parameter, > 1, the larger, the more
+#' skewed towards lower number of features
+#' We assume that `size` < number of task features
+#' Rule of thump for (`size`, `shape2`) for different #features
+if (task$n_features > 1500) {
+  # e.g. 2000 => (15, 20)
+  ss_clbk$state$size = 15
+  ss_clbk$state$shape2 = 20
+} else if (task$n_features > 500) {
+  # e.g. 1300 or 800 => (15, 15)
+  ss_clbk$state$size = 15
+  ss_clbk$state$shape2 = 15
+} else if (task$n_features > 100) {
+  # e.g. 300 => (10, 5)
+  ss_clbk$state$size = 10
+  ss_clbk$state$shape2 = 5
+} else if (task$n_features > 10) {
+  # e.g. 60 => (10, 3)
+  ss_clbk$state$size = 10
+  ss_clbk$state$shape2 = 3
+} else {
+  # e.g. 8 => (n-1, 1) => generates set c(n-1,n-2,...,2)
+  ss_clbk$state$size = task$n_features - 1
+  ss_clbk$state$shape2 = 1
 }
-rfe = fs("rfe", subset_sizes = subset_sizes)
-# for testing
-# rfe = fs("rfe", subset_sizes = c(as.integer((task$n_features)/2), as.integer((task$n_features)/4), 2))
-# rfe = fs("rfe", feature_number = 1, n_features = 1)
-store_bmr = FALSE
+
+# Generate some example sizes
+# gen_sizes(n_features = task$n_features, size = ss_clbk$state$size, shape2 = ss_clbk$state$shape2)
 
 # Measure used to optimize and evaluate the learners during the inner resampling process of the training sets
 inner_measure = msr("surv.cindex")
 # Measure used to evaluate the learners on the test sets generated during the ensemble feature selection process.
 measure = msr("surv.cindex")
 
-# print some basic parameters
+# print some basic info
 cat("# Task:", task$id, "\n")
 cat("# ", folds, "-fold CV\n", sep = "")
 cat("# Random search evals =", evals, "\n")
 cat("#", repeats, "subsamples\n")
-cat("#", length(subset_sizes), "feature subset sizes (RFE): ", subset_sizes, "\n")
+cat("# Example feature subset sizes (RFE): ", gen_sizes(n_features = task$n_features, size = ss_clbk$state$size, shape2 = ss_clbk$state$shape2), "\n")
 
 # efs parallelization (number of cores for each `ensemble_fselect()` or `embedded_ensemble_fselect()`)
 workers = 10
@@ -100,38 +118,7 @@ future::plan("multisession", workers = workers)
 cat("#", workers, "workers\n")
 cat("---------------------\n")
 
-if (FALSE){
 # EFS (WRAPPED-BASED FS) ----
-## Tree ----
-# minbucket = round(minsplit/3) = 5 obs/leaf
-tree_lrn = list(
-  lrn("surv.rpart", id = "tree", minsplit = 15)
-)
-
-cat("# Wrapper-based efs with SURVIVAL TREE")
-tic()
-set.seed(42) # reproduce: same subsampling
-suppressWarnings({
-  efs_tree = ensemble_fselect(
-    fselector = rfe,
-    task = task,
-    learners = tree_lrn,
-    init_resampling = init_rsmp,
-    inner_resampling = inner_rsmp,
-    inner_measure = measure,
-    measure = measure,
-    terminator = terminator,
-    callbacks = list(
-      tree = clbks("mlr3fselect.one_se_rule")
-    ),
-    store_benchmark_result = store_bmr,
-    store_models = FALSE
-  )
-})
-toc()
-rm_imp(efs_tree)
-saveRDS(efs_tree, file = paste0("efs/", task$id, "/efs_tree.rds"))
-}
 ## RSFs ----
 rsf_lrns = list(
   lrn("surv.ranger", id = "rsf_logrank", num.trees = n_trees,
@@ -143,9 +130,9 @@ rsf_lrns = list(
 )
 
 rsf_clbks = list(
-  rsf_logrank = clbks("mlr3fselect.one_se_rule"),
-  rsf_maxstat = clbks("mlr3fselect.one_se_rule"),
-  aorsf = clbks("mlr3fselect.one_se_rule")
+  rsf_logrank = list(clbk("mlr3fselect.one_se_rule"), ss_clbk),
+  rsf_maxstat = list(clbk("mlr3fselect.one_se_rule"), ss_clbk),
+  aorsf = list(clbk("mlr3fselect.one_se_rule"), ss_clbk)
 )
 
 cat("# Wrapper-based efs with RANDOM SURVIVAL FORESTS -", length(rsf_lrns), "learners\n")
@@ -167,8 +154,6 @@ suppressWarnings({
   )
 })
 toc()
-rm_imp(efs_rsf)
-oob_to_cindex_convert(efs_rsf)
 
 saveRDS(efs_rsf, file = paste0("efs/", task$id, "/efs_rsf.rds"))
 
@@ -193,37 +178,11 @@ internal_ss = ps(
 )
 # per learner
 xgb_clbks = list(
-  clbk("mlr3fselect.one_se_rule"),
+  clbk("mlr3fselect.one_se_rule"), ss_clbk,
   clbk("mlr3fselect.internal_tuning", internal_search_space = internal_ss)
 )
 
 cat("# Wrapper-based efs with XGBOOST -", length(xgb_lrns), "learners\n")
-# ALL TOGETHER => NEEDS MEMORY
-# tic()
-# set.seed(42) # reproduce: same subsampling
-# suppressWarnings({
-#   efs_xgb = ensemble_fselect(
-#     fselector = rfe,
-#     task = task,
-#     learners = xgb_lrns,
-#     init_resampling = init_rsmp,
-#     inner_resampling = inner_rsmp,
-#     inner_measure = measure,
-#     measure = measure,
-#     terminator = terminator,
-#     callbacks = list(
-#       xgb_cox = xgb_clbks,
-#       xgb_aft_norm = xgb_clbks,
-#       xgb_aft_extreme = xgb_clbks,
-#       xgb_aft_log = xgb_clbks
-#     ),
-#     store_benchmark_result = store_bmr,
-#     store_models = FALSE
-#   )
-# })
-# toc()
-# rm_imp(efs_xgb)
-
 efs_list = list()
 for (learner in xgb_lrns) {
   cat("#", learner$id, "\n")
@@ -247,15 +206,13 @@ for (learner in xgb_lrns) {
     store_models = FALSE
   )
   toc()
-  rm_imp(efs_xgb)
 
   # add to the xgb list
   efs_list[[learner$id]] = efs_xgb
 }
 
 # combine xgboost results
-efs_xgb = cmb_efs(efs_list, features = task$feature_names, measure = measure, inner_measure = inner_measure)
-
+efs_xgb = do.call(c, efs_list)
 saveRDS(efs_xgb, file = paste0("efs/", task$id, "/efs_xgb.rds"))
 
 # EFS (EMBEDDED FS) ----
@@ -304,7 +261,7 @@ for (learner in glmb_lrns) {
 }
 
 # combine glmboost results
-efs_glmb = cmb_efs(efs_list, features = task$feature_names, measure = measure, inner_measure = NULL)
+efs_glmb = do.call(c, efs_list)
 saveRDS(efs_glmb, file = paste0("efs/", task$id, "/efs_glmb.rds"))
 
 ## CoxBoost ----
@@ -357,5 +314,5 @@ efs_list = list(
   efs_coxlasso
 )
 
-efs_all = cmb_efs(efs_list, features = task$feature_names, measure = measure, inner_measure = inner_measure)
+efs_all = do.call(c, efs_list)
 saveRDS(efs_all, file = paste0("efs/", task$id, "/efs_all.rds"))

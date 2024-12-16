@@ -1213,9 +1213,10 @@
       "Source": "GitHub",
       "RemoteType": "github",
       "RemoteHost": "api.github.com",
-      "RemoteRepo": "mlr3fselect",
       "RemoteUsername": "mlr-org",
-      "RemoteSha": "003f6e91873161c374617e68a5fcf96104026e73",
+      "RemoteRepo": "mlr3fselect",
+      "RemoteRef": "main",
+      "RemoteSha": "ab6360a5582d5eebccdfe1c8c98ee247494843d6",
       "Requirements": [
         "R",
         "R6",
@@ -1228,7 +1229,7 @@
         "paradox",
         "stabm"
       ],
-      "Hash": "8c8a5c662c4ea0de5e213959b14d9c3e"
+      "Hash": "40856b8be9d4d274cf3e98240a67134a"
     },
     "mlr3measures": {
       "Package": "mlr3measures",
