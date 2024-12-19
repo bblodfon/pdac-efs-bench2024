@@ -274,7 +274,7 @@ if (use_GLMBoost) {
 
   # combine glmboost results
   efs_glmb = do.call(c, efs_list)
-  saveRDS(efs_glmb, file = paste0("efs/", task$id, "/efs_glmb_clbk.rds"))
+  saveRDS(efs_glmb, file = paste0("efs/", task$id, "/efs_glmb.rds"))
 }
 
 ## CoxBoost ----
@@ -321,7 +321,7 @@ if (use_CoxLasso) {
   toc()
   # remove rows which had 0 features selected (due to whatever reason) from embedded efs
   rm_zero_feat(efs_coxlasso)
-  saveRDS(efs_coxlasso, file = paste0("efs/", task$id, "/efs_coxlasso_1se.rds"))
+  saveRDS(efs_coxlasso, file = paste0("efs/", task$id, "/efs_coxlasso.rds"))
 }
 
 # Combine ALL efs results ----
@@ -334,4 +334,4 @@ efs_list = purrr::compact(list(
 ))
 
 efs_all = do.call(c, efs_list)
-saveRDS(efs_all, file = paste0("efs/", task$id, "/efs_all_glmb.rds"))
+saveRDS(efs_all, file = paste0("efs/", task$id, "/efs_all.rds"))
