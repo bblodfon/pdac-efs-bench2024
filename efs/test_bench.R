@@ -51,10 +51,10 @@ suppressWarnings({
 })
 
 # LEARNERS ----
-use_RSF = FALSE
-use_XGBoost = FALSE
-use_GLMBoost = FALSE
-use_CoxBoost = FALSE
+use_RSF = TRUE
+use_XGBoost = TRUE
+use_GLMBoost = TRUE
+use_CoxBoost = TRUE
 use_CoxLasso = TRUE
 
 # PARAMETERS ----
