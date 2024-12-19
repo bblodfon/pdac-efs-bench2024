@@ -53,7 +53,7 @@ create_glmb_at = function(id = "glmb_cox", family = "coxph", params) {
       store_tuning_instance = FALSE, # archive
       store_benchmark_result = FALSE, # benchmark result of inner resamplings
       store_models = FALSE,
-      callbacks = NULL # no 1se rule exists yet
+      callbacks = clbk("mlr3tuning.one_se_rule")
     )
     at$id = id
   })
@@ -64,12 +64,11 @@ create_glmb_at = function(id = "glmb_cox", family = "coxph", params) {
 # hack: remove rows which had 0 features selected (due to whatever reason)
 # from an `EnsembleFSResult` result (mostly applies to the embedded efs methods)
 rm_zero_feat = function(efs) {
-  efs$.__enclos_env__$private$.result = efs$.__enclos_env__$private$.result[n_features > 0]
-}
-
-# hack: remove importance column as this is not used anywhere in this project
-rm_imp = function(efs) {
-  efs$.__enclos_env__$private$.result$importance = NULL
+  n_zeros = sum(efs$.__enclos_env__$private$.result$n_features == 0)
+  if (n_zeros > 0) {
+    cat(n_zeros, " models on some subsamples selected 0 features! These are effectively removed\n")
+    efs$.__enclos_env__$private$.result = efs$.__enclos_env__$private$.result[n_features > 0]
+  }
 }
 
 # hack: put as measure the C-index = 1 - OOB_ERROR for RSFs
