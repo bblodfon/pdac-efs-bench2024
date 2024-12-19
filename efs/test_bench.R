@@ -50,6 +50,13 @@ suppressWarnings({
   task$set_col_roles(cols = "status", add_to = "stratum")
 })
 
+# LEARNERS ----
+use_RSF = FALSE
+use_XGBoost = FALSE
+use_GLMBoost = FALSE
+use_CoxBoost = FALSE
+use_CoxLasso = TRUE
+
 # PARAMETERS ----
 # Tuning parameters for learners
 n_trees = 500 # RSFs
@@ -66,7 +73,7 @@ rfe = fs("rfe")
 # rfe = fs("rfe", subset_sizes = c(as.integer((task$n_features)/2), 2)) # for testing
 terminator = trm("none") # RFE => never stop iters, defined by `subset_sizes`
 store_bmr = FALSE
-repeats = 50 # how many subsamples
+repeats = 100 # how many subsamples per learner
 ratio = 0.8 # % of data for training/tuning/fs
 init_rsmp = rsmp("subsampling", repeats = repeats, ratio = ratio)
 ss_clbk = clbk("mlr3fselect.rfe_subset_sizes") # random subset sizes
@@ -120,199 +127,211 @@ cat("---------------------\n")
 
 # EFS (WRAPPED-BASED FS) ----
 ## RSFs ----
-rsf_lrns = list(
-  lrn("surv.ranger", id = "rsf_logrank", num.trees = n_trees,
-      importance = "permutation", splitrule = "logrank"),
-  lrn("surv.ranger", id = "rsf_maxstat", num.trees = n_trees,
-      importance = "permutation", splitrule = "maxstat"),
-  lrn("surv.aorsf", id = "aorsf", n_tree = n_trees, control_type = "fast",
-      importance = "permute")
-)
-
-rsf_clbks = list(
-  rsf_logrank = list(clbk("mlr3fselect.one_se_rule"), ss_clbk),
-  rsf_maxstat = list(clbk("mlr3fselect.one_se_rule"), ss_clbk),
-  aorsf = list(clbk("mlr3fselect.one_se_rule"), ss_clbk)
-)
-
-cat("# Wrapper-based efs with RANDOM SURVIVAL FORESTS -", length(rsf_lrns), "learners\n")
-tic()
-set.seed(42) # reproduce: same subsampling
-suppressWarnings({
-  efs_rsf = ensemble_fselect(
-    fselector = rfe,
-    task = task,
-    learners = rsf_lrns,
-    init_resampling = init_rsmp,
-    inner_resampling = rsmp("insample"), # use all training data
-    inner_measure = msr("oob_error"), # 1 - C-index
-    measure = measure,
-    terminator = terminator,
-    callbacks = rsf_clbks,
-    store_benchmark_result = store_bmr,
-    store_models = FALSE
+if (use_RSF) {
+  rsf_lrns = list(
+    lrn("surv.ranger", id = "rsf_logrank", num.trees = n_trees,
+        importance = "permutation", splitrule = "logrank"),
+    lrn("surv.ranger", id = "rsf_maxstat", num.trees = n_trees,
+        importance = "permutation", splitrule = "maxstat"),
+    lrn("surv.aorsf", id = "aorsf", n_tree = n_trees, control_type = "fast",
+        importance = "permute")
   )
-})
-toc()
 
-saveRDS(efs_rsf, file = paste0("efs/", task$id, "/efs_rsf.rds"))
+  rsf_clbks = list(
+    rsf_logrank = list(clbk("mlr3fselect.one_se_rule"), ss_clbk),
+    rsf_maxstat = list(clbk("mlr3fselect.one_se_rule"), ss_clbk),
+    aorsf = list(clbk("mlr3fselect.one_se_rule"), ss_clbk)
+  )
 
-## XGBOOST ----
-xgb_params = list(
-  eta = eta,
-  max_depth = max_depth,
-  nrounds = nrounds,
-  nrounds_early = nrounds_early
-)
-
-xgb_lrns = list(
-  create_xgb_lrn(id = "xgb_cox", params = xgb_params),
-  #create_xgb_lrn(id = "xgb_aft_norm", params = xgb_params, aft_loss = "normal"),
-  #create_xgb_lrn(id = "xgb_aft_extreme", params = xgb_params, aft_loss = "extreme"),
-  create_xgb_lrn(id = "xgb_aft_log", params = xgb_params, aft_loss = "logistic")
-)
-
-# search space for internal tuning
-internal_ss = ps(
-  nrounds = p_int(upper = nrounds, aggr = function(x) as.integer(mean(unlist(x))))
-)
-# per learner
-xgb_clbks = list(
-  clbk("mlr3fselect.one_se_rule"), ss_clbk,
-  clbk("mlr3fselect.internal_tuning", internal_search_space = internal_ss)
-)
-
-cat("# Wrapper-based efs with XGBOOST -", length(xgb_lrns), "learners\n")
-efs_list = list()
-for (learner in xgb_lrns) {
-  cat("#", learner$id, "\n")
-
-  xgb_clbk = list(xgb_clbks)
-  names(xgb_clbk) = learner$id
-
+  cat("# Wrapper-based efs with RANDOM SURVIVAL FORESTS -", length(rsf_lrns), "learners\n")
   tic()
   set.seed(42) # reproduce: same subsampling
-  efs_xgb = ensemble_fselect(
-    fselector = rfe,
-    task = task,
-    learners = list(learner),
-    init_resampling = init_rsmp,
-    inner_resampling = inner_rsmp,
-    inner_measure = measure,
-    measure = measure,
-    terminator = terminator,
-    callbacks = xgb_clbk,
-    store_benchmark_result = store_bmr,
-    store_models = FALSE
-  )
+  suppressWarnings({
+    efs_rsf = ensemble_fselect(
+      fselector = rfe,
+      task = task,
+      learners = rsf_lrns,
+      init_resampling = init_rsmp,
+      inner_resampling = rsmp("insample"), # use all training data
+      inner_measure = msr("oob_error"), # 1 - C-index
+      measure = measure,
+      terminator = terminator,
+      callbacks = rsf_clbks,
+      store_benchmark_result = store_bmr,
+      store_models = FALSE
+    )
+  })
   toc()
 
-  # add to the xgb list
-  efs_list[[learner$id]] = efs_xgb
+  saveRDS(efs_rsf, file = paste0("efs/", task$id, "/efs_rsf.rds"))
 }
 
-# combine xgboost results
-efs_xgb = do.call(c, efs_list)
-saveRDS(efs_xgb, file = paste0("efs/", task$id, "/efs_xgb.rds"))
+## XGBOOST ----
+if (use_XGBoost) {
+  xgb_params = list(
+    eta = eta,
+    max_depth = max_depth,
+    nrounds = nrounds,
+    nrounds_early = nrounds_early
+  )
+
+  xgb_lrns = list(
+    create_xgb_lrn(id = "xgb_cox", params = xgb_params),
+    #create_xgb_lrn(id = "xgb_aft_norm", params = xgb_params, aft_loss = "normal"),
+    #create_xgb_lrn(id = "xgb_aft_extreme", params = xgb_params, aft_loss = "extreme"),
+    create_xgb_lrn(id = "xgb_aft_log", params = xgb_params, aft_loss = "logistic")
+  )
+
+  # search space for internal tuning
+  internal_ss = ps(
+    nrounds = p_int(upper = nrounds, aggr = function(x) as.integer(mean(unlist(x))))
+  )
+  # per learner
+  xgb_clbks = list(
+    clbk("mlr3fselect.one_se_rule"), ss_clbk,
+    clbk("mlr3fselect.internal_tuning", internal_search_space = internal_ss)
+  )
+
+  cat("# Wrapper-based efs with XGBOOST -", length(xgb_lrns), "learners\n")
+  efs_list = list()
+  for (learner in xgb_lrns) {
+    cat("#", learner$id, "\n")
+
+    xgb_clbk = list(xgb_clbks)
+    names(xgb_clbk) = learner$id
+
+    tic()
+    set.seed(42) # reproduce: same subsampling
+    efs_xgb = ensemble_fselect(
+      fselector = rfe,
+      task = task,
+      learners = list(learner),
+      init_resampling = init_rsmp,
+      inner_resampling = inner_rsmp,
+      inner_measure = measure,
+      measure = measure,
+      terminator = terminator,
+      callbacks = xgb_clbk,
+      store_benchmark_result = store_bmr,
+      store_models = FALSE
+    )
+    toc()
+
+    # add to the xgb list
+    efs_list[[learner$id]] = efs_xgb
+  }
+
+  # combine xgboost results
+  efs_xgb = do.call(c, efs_list)
+  saveRDS(efs_xgb, file = paste0("efs/", task$id, "/efs_xgb.rds"))
+}
 
 # EFS (EMBEDDED FS) ----
-## glmboost ----
+## GLMBoost ----
 # search space for tuning via random search
-glmb_ss = ps(
-  mstop = p_int(10, nrounds), # boosting rounds
-  nu = p_dbl(0, eta) # learning rate
-)
+if (use_GLMBoost) {
+  glmb_ss = ps(
+    mstop = p_int(10, nrounds), # boosting rounds
+    nu = p_dbl(0, eta) # learning rate
+  )
 
-glmb_params = list(
-  search_space = glmb_ss,
-  inner_rsmp = inner_rsmp,
-  measure = measure,
-  evals = evals
-)
+  glmb_params = list(
+    search_space = glmb_ss,
+    inner_rsmp = inner_rsmp,
+    measure = measure,
+    evals = evals
+  )
 
-# we ran them individually below
-glmb_lrns = list(
-  create_glmb_at(id = "glmb_cox", family = "coxph", params = glmb_params),
-  create_glmb_at(id = "glmb_loglog", family = "loglog", params = glmb_params)#,
-  #create_glmb_at(id = "glmb_weibull", family = "weibull", params = glmb_params),
-  #create_glmb_at(id = "glmb_lognorm", family = "lognormal", params = glmb_params)
-)
+  # we ran them individually below
+  glmb_lrns = list(
+    create_glmb_at(id = "glmb_cox", family = "coxph", params = glmb_params),
+    create_glmb_at(id = "glmb_loglog", family = "loglog", params = glmb_params)#,
+    #create_glmb_at(id = "glmb_weibull", family = "weibull", params = glmb_params),
+    #create_glmb_at(id = "glmb_lognorm", family = "lognormal", params = glmb_params)
+  )
 
-cat("# Embedded efs with GLMBOOST -", length(glmb_lrns), "learners\n")
-efs_list = list()
-for (learner in glmb_lrns) {
-  cat("#", learner$id, "\n")
+  cat("# Embedded efs with GLMBOOST -", length(glmb_lrns), "learners\n")
+  efs_list = list()
+  for (learner in glmb_lrns) {
+    cat("#", learner$id, "\n")
 
+    tic()
+    set.seed(42) # reproduce: same subsampling
+    efs_glmb = embedded_ensemble_fselect(
+      task = task,
+      learners = list(learner),
+      init_resampling = init_rsmp,
+      measure = measure,
+      store_benchmark_result = store_bmr
+    )
+    toc()
+    # remove rows which had 0 features selected (due to whatever reason) from embedded efs
+    rm_zero_feat(efs_glmb)
+
+    # add to the glmb list
+    efs_list[[learner$id]] = efs_glmb
+  }
+
+  # combine glmboost results
+  efs_glmb = do.call(c, efs_list)
+  saveRDS(efs_glmb, file = paste0("efs/", task$id, "/efs_glmb_clbk.rds"))
+}
+
+## CoxBoost ----
+if (use_CoxBoost) {
+  # Does internal CV tuning of the nrounds
+  coxboost = lrn("surv.cv_coxboost", id = "coxboost", standardize = TRUE,
+                 return.score = FALSE, penalty = "optimCoxBoostPenalty",
+                 maxstepno = nrounds, K = folds)
+
+  cat("# Embedded efs with COXBOOST learner\n")
   tic()
   set.seed(42) # reproduce: same subsampling
-  efs_glmb = embedded_ensemble_fselect(
+  efs_coxb = embedded_ensemble_fselect(
     task = task,
-    learners = list(learner),
+    learners = list(coxboost),
     init_resampling = init_rsmp,
     measure = measure,
     store_benchmark_result = store_bmr
   )
   toc()
   # remove rows which had 0 features selected (due to whatever reason) from embedded efs
-  rm_zero_feat(efs_glmb)
-
-  # add to the glmb list
-  efs_list[[learner$id]] = efs_glmb
+  rm_zero_feat(efs_coxb)
+  saveRDS(efs_coxb, file = paste0("efs/", task$id, "/efs_coxb.rds"))
 }
 
-# combine glmboost results
-efs_glmb = do.call(c, efs_list)
-saveRDS(efs_glmb, file = paste0("efs/", task$id, "/efs_glmb.rds"))
-
-## CoxBoost ----
-# Does internal CV tuning of the nrounds
-coxboost = lrn("surv.cv_coxboost", id = "coxboost", standardize = TRUE,
-               return.score = FALSE, penalty = "optimCoxBoostPenalty",
-               maxstepno = nrounds, K = folds)
-
-cat("# Embedded efs with COXBOOST learner\n")
-tic()
-set.seed(42) # reproduce: same subsampling
-efs_coxb = embedded_ensemble_fselect(
-  task = task,
-  learners = list(coxboost),
-  init_resampling = init_rsmp,
-  measure = measure,
-  store_benchmark_result = store_bmr
-)
-toc()
-# remove rows which had 0 features selected (due to whatever reason) from embedded efs
-rm_zero_feat(efs_coxb)
-saveRDS(efs_coxb, file = paste0("efs/", task$id, "/efs_coxb.rds"))
-
 ## CoxLasso ----
-# Does internal CV tuning of lambda (s => which lambda, lambda.min => more features)
-coxlasso = lrn("surv.cv_glmnet", id = "coxlasso", standardize = TRUE, alpha = 1,
-               nfolds = folds, type.measure = "C", s = "lambda.min")
+if (use_CoxLasso) {
+  # Does internal CV tuning of lambda
+  # `s` => which `lambda` to use, `lambda.min` => more features, higher C-index
+  # `lambda.1se` => less features, smaller C-index
+  coxlasso = lrn("surv.cv_glmnet", id = "coxlasso", standardize = TRUE, alpha = 1,
+                 nfolds = folds, type.measure = "C", s = "lambda.min")
 
-cat("# Embedded efs with COXLASSO learner\n")
-tic()
-set.seed(42) # reproduce: same subsampling
-efs_coxlasso = embedded_ensemble_fselect(
-  task = task,
-  learners = list(coxlasso),
-  init_resampling = init_rsmp,
-  measure = measure,
-  store_benchmark_result = store_bmr
-)
-toc()
-# remove rows which had 0 features selected (due to whatever reason) from embedded efs
-rm_zero_feat(efs_coxlasso)
-saveRDS(efs_coxlasso, file = paste0("efs/", task$id, "/efs_coxlasso.rds"))
+  cat("# Embedded efs with COXLASSO learner\n")
+  tic()
+  set.seed(42) # reproduce: same subsampling
+  efs_coxlasso = embedded_ensemble_fselect(
+    task = task,
+    learners = list(coxlasso),
+    init_resampling = init_rsmp,
+    measure = measure,
+    store_benchmark_result = store_bmr
+  )
+  toc()
+  # remove rows which had 0 features selected (due to whatever reason) from embedded efs
+  rm_zero_feat(efs_coxlasso)
+  saveRDS(efs_coxlasso, file = paste0("efs/", task$id, "/efs_coxlasso_1se.rds"))
+}
 
 # Combine ALL efs results ----
-efs_list = list(
-  efs_rsf,
-  efs_xgb,
-  efs_glmb,
-  efs_coxb,
-  efs_coxlasso
-)
+efs_list = purrr::compact(list(
+  if (use_RSF) efs_rsf,
+  if (use_XGBoost) efs_xgb,
+  if (use_GLMBoost) efs_glmb,
+  if (use_CoxBoost) efs_coxb,
+  if (use_CoxLasso) efs_coxlasso
+))
 
 efs_all = do.call(c, efs_list)
-saveRDS(efs_all, file = paste0("efs/", task$id, "/efs_all.rds"))
+saveRDS(efs_all, file = paste0("efs/", task$id, "/efs_all_glmb.rds"))
