@@ -66,7 +66,7 @@ create_glmb_at = function(id = "glmb_cox", family = "coxph", params) {
 rm_zero_feat = function(efs) {
   n_zeros = sum(efs$.__enclos_env__$private$.result$n_features == 0)
   if (n_zeros > 0) {
-    cat(n_zeros, " models on some subsamples selected 0 features! These are effectively removed\n")
+    cat(n_zeros, "models on some subsamples selected 0 features! These are effectively removed\n")
     efs$.__enclos_env__$private$.result = efs$.__enclos_env__$private$.result[n_features > 0]
   }
 }
