@@ -186,30 +186,6 @@ task_list = mlr3misc::map(names(data_list), function(.data_name) {
 names(task_list) = names(data_list)
 # task_list
 
-# STRATIFIED TRAIN/TEST SPLIT ----
-task_clinical = task_list$clinical$clone()
-
-table(task_clinical$data(cols = "sex")) # 46 males (0), 35 females (1)
-table(task_clinical$data(cols = "tumor_stage")) # 8 => stage I (0), 73 => stage II (1)
-table(task_clinical$data(cols = "status")) # 33 => censored, 48 => events
-
-# stratify on status and tumor_stage
-task_clinical$set_col_roles(cols = c("status", "tumor_stage"), add_to = "stratum")
-task_clinical$strata
-# chose ratio to have 30 patients in the test set
-set.seed(42)
-part = partition(task_clinical, ratio = 0.63)
-length(part$test)
-
-# check stratification is done properly
-task_clinical$cens_prop()
-task_clinical$cens_prop(rows = part$train)
-task_clinical$cens_prop(rows = part$test)
-
-prop.table(table(task_clinical$data(cols = "tumor_stage")[[1L]]))
-prop.table(table(task_clinical$data(rows = part$train, cols = "tumor_stage")[[1L]]))
-prop.table(table(task_clinical$data(rows = part$test, cols = "tumor_stage")[[1L]]))
-
 # METADATA ----
 metadata = tibble(
   n_patients = task_list$clinical$nrow,
@@ -228,12 +204,6 @@ print(metadata)
 
 # SAVE ALL DATA TO FILES ----
 saveRDS(task_list, file = "data/wissel2023/task_list.rds")
-saveRDS(part, file = "data/wissel2023/data_split.rds")
 write_csv(metadata, file = "data/wissel2023/metadata.csv")
-
 all_data_preprocessed = bind_cols(data_list)
 write_csv(all_data_preprocessed, file = "data/wissel2023/all_data_preprocessed.csv")
-write_csv(all_data_preprocessed[part$train, ],
-          file = "data/wissel2023/all_data_preprocessed_train.csv")
-write_csv(all_data_preprocessed[part$test, ],
-          file = "data/wissel2023/all_data_preprocessed_test.csv")
