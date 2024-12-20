@@ -95,6 +95,12 @@ mlr3misc::map(clinical, \(.x) sum(is.na(.x)))
 stopifnot(nrow(clinical) == nrow(all_data))
 clinical_complete_ids = clinical |> complete.cases() |> which()
 clinical
+
+# some useful stats
+table(clinical$sex)
+table(clinical$tumor_stage) # 17 => stage I (0), 57 => stage II (1)
+table(clinical$status) # 24 => censored/alive, 50 dead
+
 # OMICS (9) ----
 
 ## GEX ----
@@ -312,7 +318,7 @@ mlr3misc::map(data_list, function(.data) {
 # SURVIVAL TASKS ----
 survival_outcome = data_list$clinical |> select(patient_id, time, status)
 
-surv_task_list = mlr3misc::map(names(data_list), function(.data_name) {
+task_list = mlr3misc::map(names(data_list), function(.data_name) {
   if (.data_name == "clinical") {
     data = data_list[[.data_name]]
   } else {
@@ -326,80 +332,25 @@ surv_task_list = mlr3misc::map(names(data_list), function(.data_name) {
 
   task
 })
-names(surv_task_list) = names(data_list)
-
-# CLASSIF TASKS ----
-# All patients were followed up completely (and died) before the study was stopped
-# (administrative censoring at max time, status = 0)
-classif_outcome =
-  survival_outcome |>
-  mutate(status = if_else(status == 1, "Dead", "Alive")) |>
-  select(patient_id, status)
-
-classif_task_list = mlr3misc::map(names(data_list), function(.data_name) {
-  if (.data_name == "clinical") {
-    data = data_list[["clinical"]] |> select(-c(time, status, patient_id))
-    data = bind_cols(classif_outcome, data)
-  } else {
-    data = bind_cols(classif_outcome, data_list[[.data_name]])
-  }
-
-  task = as_task_classif(x = data, target = "status", id = .data_name)
-
-  # not a feature, add as row names
-  task$set_col_roles(cols = "patient_id", roles = "name")
-
-  task
-})
-names(classif_task_list) = names(data_list)
-
-# STRATIFIED TRAIN/TEST SPLIT ----
-table(clinical$sex)
-table(clinical$tumor_stage) # 17 => stage I (0), 57 => stage II (1)
-table(clinical$status) # 24 => censored/alive, 50 dead
-
-task_clinical = surv_task_list$clinical$clone()
-# stratify on `status` and `tumor_stage`
-task_clinical$set_col_roles(cols = c("status", "tumor_stage"), add_to = "stratum")
-task_clinical$strata
-# chose ratio to have 27 patients in the test set
-set.seed(42)
-part = partition(task_clinical, ratio = 0.63)
-length(part$test)
-
-# check stratification is done properly
-task_clinical$cens_prop()
-task_clinical$cens_prop(rows = part$train)
-task_clinical$cens_prop(rows = part$test)
-
-prop.table(table(task_clinical$data(cols = "tumor_stage")[[1L]]))
-prop.table(table(task_clinical$data(rows = part$train, cols = "tumor_stage")[[1L]]))
-prop.table(table(task_clinical$data(rows = part$test, cols = "tumor_stage")[[1L]]))
+names(task_list) = names(data_list)
 
 # METADATA ----
 metadata = tibble(
-  n_patients = surv_task_list$clinical$nrow,
-  n_modalities = length(surv_task_list),
-  n_snv = surv_task_list$snv$n_features,
-  n_cnv = surv_task_list$cnv$n_features,
-  n_indel = surv_task_list$indel$n_features,
-  n_path = surv_task_list$path$n_features,
-  n_clinical = surv_task_list$clinical$n_features,
-  n_total_features = sum(mlr3misc::map_int(surv_task_list, \(.t) {.t$n_features})),
-  n_events = sum(surv_task_list$clinical$status() == 1),
-  cens_rate = round(surv_task_list$clinical$cens_prop(), digits = 2)
+  n_patients = task_list$clinical$nrow,
+  n_modalities = length(task_list),
+  n_snv = task_list$snv$n_features,
+  n_cnv = task_list$cnv$n_features,
+  n_indel = task_list$indel$n_features,
+  n_path = task_list$path$n_features,
+  n_clinical = task_list$clinical$n_features,
+  n_total_features = sum(mlr3misc::map_int(task_list, \(.t) {.t$n_features})),
+  n_events = sum(task_list$clinical$status() == 1),
+  cens_rate = round(task_list$clinical$cens_prop(), digits = 2)
 )
 print(metadata)
 
 # SAVE ALL DATA TO FILES ----
-# saveRDS(surv_task_list, file = "data/osipov2024/surv_task_list.rds")
-# saveRDS(classif_task_list, file = "data/osipov2024/classif_task_list.rds")
-# saveRDS(part, file = "data/osipov2024/data_split.rds")
-# write_csv(metadata, file = "data/osipov2024/metadata.csv")
-#
-# all_data_preprocessed = bind_cols(data_list)
-# write_csv(all_data_preprocessed, file = "data/osipov2024/all_data_preprocessed.csv")
-# write_csv(all_data_preprocessed[part$train, ],
-#           file = "data/osipov2024/all_data_preprocessed_train.csv")
-# write_csv(all_data_preprocessed[part$test, ],
-#           file = "data/osipov2024/all_data_preprocessed_test.csv")
+saveRDS(task_list, file = "data/osipov2024/task_list.rds")
+write_csv(metadata, file = "data/osipov2024/metadata.csv")
+all_data_preprocessed = bind_cols(data_list)
+write_csv(all_data_preprocessed, file = "data/osipov2024/all_data_preprocessed.csv")
