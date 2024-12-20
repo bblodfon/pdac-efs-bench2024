@@ -6,10 +6,10 @@ Osipov et al. (2024) The Molecular Twin artificial-intelligence platform integra
 
 ## Files
 
-See `metadata.csv` for metadata info and `preprocess_osipov.R` for the preprocessing script.
-
-Simple stratified train/test split based on **status** and **clinical tumor stage** was performed to the extracted multi-modal dataset (`data_split.rds`).
-Output `mlr3` tasks are in the `{surv|classif}_task_list.rds` and `all_data_preprocessed_*.csv` files.
+- `metadata.csv`: metadata info
+- `preprocess_osipov.R`: the preprocessing script
+- `task_list.rds`: `mlr3` survival tasks, one per modality
+- `all_data_preprocessed_*.csv`: preprocessed data from patients and modalities in one matrix file.
 
 ## Data summary
 
@@ -24,6 +24,4 @@ Output `mlr3` tasks are in the `{surv|classif}_task_list.rds` and `all_data_prep
 ## Notes
 
 - The multi-modal dataset from the paper includes other modalities as well, but we chose the **maximum number of modalities (>=3)** for which we have **> 60 patients** with **complete data** across these modalities.
-- The survival data is administratively censored so we can use the dataset with:
-  - A right-censored target outcome (`time`, `status`) 
-  - A classification target outcome (`status`) at the end of study time point (every patient alive after that time point, rest died before).
+- The survival data is administratively censored and we use the dataset with a right-censored target outcome (`time`, `status`).
