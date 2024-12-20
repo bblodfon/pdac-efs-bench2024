@@ -9,7 +9,7 @@ Osipov et al. (2024) The Molecular Twin artificial-intelligence platform integra
 - `metadata.csv`: metadata info
 - `preprocess_osipov.R`: the preprocessing script
 - `task_list.rds`: `mlr3` survival tasks, one per modality
-- `all_data_preprocessed_*.csv`: preprocessed data from patients and modalities in one matrix file.
+- `all_data_preprocessed.csv`: preprocessed data from all patients and modalities
 
 ## Data summary
 

@@ -6,10 +6,10 @@ Wissel et al. (2023) Systematic comparison of multi-omics survival models reveal
 
 ## Files
 
-See `metadata.csv` for metadata info and `preprocess_wissel.R` for the preprocessing script.
-
-Simple stratified train/test split was performed on **status** and **clinical tumor stage** to the extracted multi-modal dataset (`data_split.rds`).
-Output `mlr3` tasks are in the `task_list.rds` and `all_data_preprocessed_*.csv` files.
+- `metadata.csv`: metadata info
+- `preprocess_wissel.R`: the preprocessing script
+- `task_list.rds`: `mlr3` survival tasks, one per modality
+- `all_data_preprocessed.csv`: preprocessed data from all patients and modalities
 
 ## Data summary
 
@@ -25,3 +25,4 @@ Output `mlr3` tasks are in the `task_list.rds` and `all_data_preprocessed_*.csv`
 ## Notes
 
 - `miRNA` data was excluded due to non-sensical feature distributions.
+- We keep the highest variance 2000 features for modalities with more than 2000 features.
