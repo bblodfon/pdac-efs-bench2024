@@ -8,6 +8,7 @@ library(mlr3extralearners)
 library(mlr3proba)
 library(mlr3fselect)
 library(mlr3tuning)
+library(mlr3pipelines)
 library(rpart)
 library(ranger)
 library(aorsf)
@@ -41,9 +42,8 @@ handlers(on_missing = "ignore", global = TRUE)
 handlers("progress")
 
 # TASK ----
-task = readRDS(file = "data/wissel2023/task_list.rds")$gex # GEX - TCGA
-# task = readRDS(file = "data/osipov2024/surv_task_list.rds")$snv # SNV - Wissel
-# task = tsk("gbcs") # German Breast Cancer data for testing
+# task = readRDS(file = "data/wissel2023/task_list.rds")$gex # GEX - TCGA
+task = readRDS(file = "data/osipov2024/surv_task_list.rds")$snv # SNV - Wissel
 
 # stratify by status
 suppressWarnings({
@@ -128,13 +128,20 @@ cat("---------------------\n")
 # EFS (WRAPPED-BASED FS) ----
 ## RSFs ----
 if (use_RSF) {
+  aorsf_lrn =
+    po("removeconstants") %>>%
+    lrn("surv.aorsf", n_tree = 500, control_type = "fast", importance = "permute") |>
+    as_learner()
+  aorsf_lrn$id = "aorsf"
+
   rsf_lrns = list(
     lrn("surv.ranger", id = "rsf_logrank", num.trees = n_trees,
         importance = "permutation", splitrule = "logrank"),
     lrn("surv.ranger", id = "rsf_maxstat", num.trees = n_trees,
         importance = "permutation", splitrule = "maxstat"),
-    lrn("surv.aorsf", id = "aorsf", n_tree = n_trees, control_type = "fast",
-        importance = "permute")
+    aorsf_lrn
+    #lrn("surv.aorsf", id = "aorsf", n_tree = n_trees, control_type = "fast",
+    #    importance = "permute")
   )
 
   rsf_clbks = list(
