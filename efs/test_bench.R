@@ -43,7 +43,7 @@ handlers("progress")
 
 # TASK ----
 # task = readRDS(file = "data/wissel2023/task_list.rds")$gex # GEX - TCGA
-task = readRDS(file = "data/osipov2024/surv_task_list.rds")$snv # SNV - Wissel
+task = readRDS(file = "data/osipov2024/task_list.rds")$snv # SNV - Wissel
 
 # stratify by status
 suppressWarnings({
