@@ -23,6 +23,11 @@ source("efs/helpers.R")
 source("efs/callbacks.R")
 
 # SETUP CONFIG ----
+cfg = config::get() # from `config.yaml`
+
+# dir to save results
+save_dir = file.path(cfg$results_dir, cfg$dataset_id)
+
 # Parallelization of XGBoost
 Sys.setenv(OMP_NUM_THREADS = 1)
 Sys.setenv(OMP_THREAD_LIMIT = 1)
@@ -32,18 +37,20 @@ try(data.table::setDTthreads(1))
 try(RhpcBLASctl::blas_set_num_threads(1))
 try(RhpcBLASctl::omp_set_num_threads(1))
 
-# Logging
-lgr::get_logger("bbotk")$set_threshold("warn")
-lgr::get_logger("mlr3" )$set_threshold("warn")
-
 # progress bars
 options(progressr.enable = TRUE)
 handlers(on_missing = "ignore", global = TRUE)
 handlers("progress")
 
 # TASK ----
-# task = readRDS(file = "data/wissel2023/task_list.rds")$gex # GEX - TCGA
-task = readRDS(file = "data/osipov2024/task_list.rds")$snv # SNV - Wissel
+# tasks = readRDS(file = "data/wissel2023/task_list.rds")
+# #tasks = readRDS(file = "data/osipov2024/task_list.rds")
+# for (task in tasks) {
+#   task$id
+# }
+
+# test one task
+task = cfg$task
 
 # stratify by status
 suppressWarnings({
@@ -59,30 +66,37 @@ use_CoxLasso = TRUE
 
 # PARAMETERS ----
 # Tuning parameters for learners
-n_trees = 500 # RSFs
-nrounds = 500 # xgboost, glmboost and cv_coxboost
-folds = 5 # for inner resampling
-inner_rsmp = rsmp("cv", folds = folds)
-evals = 25 # random search evaluations (glmboost)
-eta = 0.1 # learning rate
-nrounds_early = 42 # early stopping rounds (for xgboost, should be < nrounds)
-max_depth = 6 # for xgboost
+n_trees = cfg$learner_params$n_trees # RSFs
+nrounds = cfg$learner_params$nrounds # xgboost, glmboost and cv_coxboost
+folds = cfg$learner_params$folds # for inner resampling
+inner_rsmp = rsmp("cv", folds = folds) # for xgboost and glmboost
+evals = cfg$learner_params$evals # random search evaluations (glmboost)
+eta = cfg$learner_params$eta # learning rate
+nrounds_early = cfg$learner_params$nrounds_early # early stopping rounds (for xgboost, should be < nrounds)
+max_depth = cfg$learner_params$max_depth # for xgboost
 
 # efs parameters
 rfe = fs("rfe")
 # rfe = fs("rfe", subset_sizes = c(as.integer((task$n_features)/2), 2)) # for testing
 terminator = trm("none") # RFE => never stop iters, defined by `subset_sizes`
-store_bmr = FALSE
-repeats = 100 # how many subsamples per learner
-ratio = 0.8 # % of data for training/tuning/fs
+store_bmr = cfg$efs$store_bmr
+repeats = cfg$efs$repeats # how many subsamples per learner
+ratio = cfg$efs$ratio # % of data for training/tuning/fs
 init_rsmp = rsmp("subsampling", repeats = repeats, ratio = ratio)
 ss_clbk = clbk("mlr3fselect.rfe_subset_sizes") # random subset sizes
 #' `size` => how many RFE iters (subset sizes)
-#' `shape2` => beta distr parameter, > 1, the larger, the more
-#' skewed towards lower number of features
+#' `shape2` => beta distr parameter, > 1, the larger => more skewed towards less features
 #' We assume that `size` < number of task features
-#' Rule of thump for (`size`, `shape2`) for different #features
-if (task$n_features > 1500) {
+#' Some rules of thump for selecting (`size`, `shape2`) for different #features
+if (task$n_features > 10000) {
+  # e.g. 20000 => (15, 50)
+  ss_clbk$state$size = 15
+  ss_clbk$state$shape2 = 50
+} else if (task$n_features > 5000) {
+  # e.g. 7000 => (15, 20)
+  ss_clbk$state$size = 15
+  ss_clbk$state$shape2 = 30
+} else if (task$n_features > 1500) {
   # e.g. 2000 => (15, 20)
   ss_clbk$state$size = 15
   ss_clbk$state$shape2 = 20
@@ -120,7 +134,7 @@ cat("#", repeats, "subsamples\n")
 cat("# Example feature subset sizes (RFE): ", gen_sizes(n_features = task$n_features, size = ss_clbk$state$size, shape2 = ss_clbk$state$shape2), "\n")
 
 # efs parallelization (number of cores for each `ensemble_fselect()` or `embedded_ensemble_fselect()`)
-workers = 10
+workers = cfg$workers
 future::plan("multisession", workers = workers)
 cat("#", workers, "workers\n")
 cat("---------------------\n")
@@ -140,8 +154,6 @@ if (use_RSF) {
     lrn("surv.ranger", id = "rsf_maxstat", num.trees = n_trees,
         importance = "permutation", splitrule = "maxstat"),
     aorsf_lrn
-    #lrn("surv.aorsf", id = "aorsf", n_tree = n_trees, control_type = "fast",
-    #    importance = "permute")
   )
 
   rsf_clbks = list(
@@ -170,7 +182,7 @@ if (use_RSF) {
   })
   toc()
 
-  saveRDS(efs_rsf, file = paste0("efs/", task$id, "/efs_rsf.rds"))
+  saveRDS(efs_rsf, file = file.path(save_dir, task$id, "efs_rsf.rds"))
 }
 
 ## XGBOOST ----
@@ -193,6 +205,7 @@ if (use_XGBoost) {
   internal_ss = ps(
     nrounds = p_int(upper = nrounds, aggr = function(x) as.integer(mean(unlist(x))))
   )
+
   # per learner
   xgb_clbks = list(
     clbk("mlr3fselect.one_se_rule"), ss_clbk,
@@ -230,7 +243,7 @@ if (use_XGBoost) {
 
   # combine xgboost results
   efs_xgb = do.call(c, efs_list)
-  saveRDS(efs_xgb, file = paste0("efs/", task$id, "/efs_xgb.rds"))
+  saveRDS(efs_xgb, file = file.path(save_dir, task$id, "efs_xgb.rds"))
 }
 
 # EFS (EMBEDDED FS) ----
@@ -281,7 +294,7 @@ if (use_GLMBoost) {
 
   # combine glmboost results
   efs_glmb = do.call(c, efs_list)
-  saveRDS(efs_glmb, file = paste0("efs/", task$id, "/efs_glmb.rds"))
+  saveRDS(efs_glmb, file = file.path(save_dir, task$id, "efs_glmb.rds"))
 }
 
 ## CoxBoost ----
@@ -304,7 +317,7 @@ if (use_CoxBoost) {
   toc()
   # remove rows which had 0 features selected (due to whatever reason) from embedded efs
   rm_zero_feat(efs_coxb)
-  saveRDS(efs_coxb, file = paste0("efs/", task$id, "/efs_coxb.rds"))
+  saveRDS(efs_coxb, file = file.path(save_dir, task$id, "efs_coxb.rds"))
 }
 
 ## CoxLasso ----
@@ -328,7 +341,7 @@ if (use_CoxLasso) {
   toc()
   # remove rows which had 0 features selected (due to whatever reason) from embedded efs
   rm_zero_feat(efs_coxlasso)
-  saveRDS(efs_coxlasso, file = paste0("efs/", task$id, "/efs_coxlasso.rds"))
+  saveRDS(efs_coxlasso, file = file.path(save_dir, task$id, "efs_coxlasso.rds"))
 }
 
 # Combine ALL efs results ----
@@ -341,4 +354,4 @@ efs_list = purrr::compact(list(
 ))
 
 efs_all = do.call(c, efs_list)
-saveRDS(efs_all, file = paste0("efs/", task$id, "/efs_all.rds"))
+saveRDS(efs_all, file = file.path(save_dir, task$id, "efs_all.rds"))
