@@ -317,7 +317,7 @@ if (use_CoxBoost) {
   toc()
   # remove rows which had 0 features selected (due to whatever reason) from embedded efs
   rm_zero_feat(efs_coxb)
-  saveRDS(efs_coxb, file = file.path(save_dir, task$id, "efs_coxb.rds"))
+  saveRDS(efs_coxb, file = file.path(save_dir, task$id, "efs_coxboost.rds"))
 }
 
 ## CoxLasso ----
