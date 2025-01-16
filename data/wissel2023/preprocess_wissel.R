@@ -150,9 +150,32 @@ mlr3misc::map(data_list, function(.data) {
   .data |> as.matrix() |> as.vector() |> is.na() |> sum()
 })
 
+# Non-filtered OMICS ----
+# Here we keep some omics with all features for further analyses
+survival_outcome = clinical |> select(patient_id, time, status)
+
+## GEX
+gex_data = data_list$gex
+feats_to_exclude = names(which(apply(gex_data, 2, var, na.rm = TRUE) == 0)) # remove constant features
+gex_data = gex_data |> select(-all_of(feats_to_exclude))
+data = bind_cols(survival_outcome, gex_data)
+gex_task = as_task_surv(x = data, time = "time", event = "status", id = "gex")
+gex_task$set_col_roles(cols = "patient_id", roles = "name")
+saveRDS(gex_task, file = "data/wissel2023/gex_task.rds")
+
+## Mutation
+mut_data = data_list$mutation
+feats_to_exclude = names(which(apply(mut_data, 2, var, na.rm = TRUE) == 0)) # remove constant features
+mut_data = mut_data |> select(-all_of(feats_to_exclude))
+data = bind_cols(survival_outcome, mut_data)
+mut_task = as_task_surv(x = data, time = "time", event = "status", id = "mutation")
+mut_task$set_col_roles(cols = "patient_id", roles = "name")
+saveRDS(mut_task, file = "data/wissel2023/mut_task.rds")
+
+# Pre-filter features (variance) ----
 # keep only the top 2000 features with the highest variance per omic
 n_features = 2000
-data_list = mlr3misc::map(data_list, function(.data) {
+data_list_flt = mlr3misc::map(data_list, function(.data) {
   if (ncol(.data) > n_features) {
     features_to_keep =
       apply(.data, 2, var) |>
@@ -167,13 +190,11 @@ data_list = mlr3misc::map(data_list, function(.data) {
 })
 
 # TASKS ----
-survival_outcome = data_list$clinical |> select(patient_id, time, status)
-
-task_list = mlr3misc::map(names(data_list), function(.data_name) {
+task_list = mlr3misc::map(names(data_list_flt), function(.data_name) {
   if (.data_name == "clinical") {
-    data = data_list[["clinical"]]
+    data = data_list_flt[["clinical"]]
   } else {
-    data = bind_cols(survival_outcome, data_list[[.data_name]])
+    data = bind_cols(survival_outcome, data_list_flt[[.data_name]])
   }
 
   # create survival task
@@ -183,8 +204,7 @@ task_list = mlr3misc::map(names(data_list), function(.data_name) {
 
   task
 })
-names(task_list) = names(data_list)
-# task_list
+names(task_list) = names(data_list_flt)
 
 # METADATA ----
 metadata = tibble(
@@ -205,5 +225,5 @@ print(metadata)
 # SAVE ALL DATA TO FILES ----
 saveRDS(task_list, file = "data/wissel2023/task_list.rds")
 write_csv(metadata, file = "data/wissel2023/metadata.csv")
-all_data_preprocessed = bind_cols(data_list)
+all_data_preprocessed = bind_cols(data_list_flt)
 write_csv(all_data_preprocessed, file = "data/wissel2023/all_data_preprocessed.csv")
