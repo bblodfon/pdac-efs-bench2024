@@ -57,14 +57,7 @@ suppressWarnings({
   task$set_col_roles(cols = "status", add_to = "stratum")
 })
 
-# LEARNERS ----
-use_RSF = TRUE
-use_XGBoost = TRUE
-use_GLMBoost = TRUE
-use_CoxBoost = TRUE
-use_CoxLasso = TRUE
-
-# PARAMETERS ----
+# CONFIG ----
 # Tuning parameters for learners
 n_trees = cfg$learner_params$n_trees # RSFs
 nrounds = cfg$learner_params$nrounds # xgboost, glmboost and cv_coxboost
@@ -127,10 +120,11 @@ inner_measure = msr("surv.cindex")
 measure = msr("surv.cindex")
 
 # print some basic info
+cat("# Dataset:", cfg$dataset_id, "\n")
 cat("# Task:", task$id, "\n")
-cat("# ", folds, "-fold CV\n", sep = "")
-cat("# Random search evals =", evals, "\n")
-cat("#", repeats, "subsamples\n")
+cat("# Inner Resampling: ", folds, "-fold CV\n", sep = "")
+cat("# Random search #evaluations: ", evals, "\n")
+cat("# #Subsamples: ", repeats, "\n")
 cat("# Example feature subset sizes (RFE): ", gen_sizes(n_features = task$n_features, size = ss_clbk$state$size, shape2 = ss_clbk$state$shape2), "\n")
 
 # efs parallelization (number of cores for each `ensemble_fselect()` or `embedded_ensemble_fselect()`)
@@ -141,7 +135,7 @@ cat("---------------------\n")
 
 # EFS (WRAPPED-BASED FS) ----
 ## RSFs ----
-if (use_RSF) {
+if (cfg$use$RSF) {
   aorsf_lrn =
     po("removeconstants") %>>%
     lrn("surv.aorsf", n_tree = 500, control_type = "fast", importance = "permute") |>
@@ -186,7 +180,7 @@ if (use_RSF) {
 }
 
 ## XGBOOST ----
-if (use_XGBoost) {
+if (cfg$use$XGBoost) {
   xgb_params = list(
     eta = eta,
     max_depth = max_depth,
@@ -249,7 +243,7 @@ if (use_XGBoost) {
 # EFS (EMBEDDED FS) ----
 ## GLMBoost ----
 # search space for tuning via random search
-if (use_GLMBoost) {
+if (cfg$use$GLMBoost) {
   glmb_ss = ps(
     mstop = p_int(10, nrounds), # boosting rounds
     nu = p_dbl(0, eta) # learning rate
@@ -298,7 +292,7 @@ if (use_GLMBoost) {
 }
 
 ## CoxBoost ----
-if (use_CoxBoost) {
+if (cfg$use$CoxBoost) {
   # Does internal CV tuning of the nrounds
   coxboost = lrn("surv.cv_coxboost", id = "coxboost", standardize = TRUE,
                  return.score = FALSE, penalty = "optimCoxBoostPenalty",
@@ -321,7 +315,7 @@ if (use_CoxBoost) {
 }
 
 ## CoxLasso ----
-if (use_CoxLasso) {
+if (cfg$use$CoxLasso) {
   # Does internal CV tuning of lambda
   # `s` => which `lambda` to use, `lambda.min` => more features, higher C-index
   # `lambda.1se` => less features, smaller C-index
@@ -346,11 +340,11 @@ if (use_CoxLasso) {
 
 # Combine ALL efs results ----
 efs_list = purrr::compact(list(
-  if (use_RSF) efs_rsf,
-  if (use_XGBoost) efs_xgb,
-  if (use_GLMBoost) efs_glmb,
-  if (use_CoxBoost) efs_coxb,
-  if (use_CoxLasso) efs_coxlasso
+  if (cfg$use$RSF) efs_rsf,
+  if (cfg$use$XGBoost) efs_xgb,
+  if (cfg$use$GLMBoost) efs_glmb,
+  if (cfg$use$CoxBoost) efs_coxb,
+  if (cfg$use$CoxLasso) efs_coxlasso
 ))
 
 efs_all = do.call(c, efs_list)
