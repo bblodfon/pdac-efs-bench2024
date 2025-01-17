@@ -156,17 +156,28 @@ survival_outcome = clinical |> select(patient_id, time, status)
 
 ## GEX
 gex_data = data_list$gex
-feats_to_exclude = names(which(apply(gex_data, 2, var, na.rm = TRUE) == 0)) # remove constant features
-gex_data = gex_data |> select(-all_of(feats_to_exclude))
+
+# remove constant features
+feats_to_exclude = names(which(apply(gex_data, 2, var, na.rm = TRUE) == 0))
+#gex_data = gex_data |> select(-all_of(feats_to_exclude))
+
+# keep the 10000 most variant genes
+features_to_keep =
+  apply(gex_data, 2, var) |>
+  sort(decreasing = TRUE) |>
+  names() |>
+  head(n = 10000)
+
+gex_data = gex_data |> select(all_of(features_to_keep))
 data = bind_cols(survival_outcome, gex_data)
 gex_task = as_task_surv(x = data, time = "time", event = "status", id = "gex")
 gex_task$set_col_roles(cols = "patient_id", roles = "name")
-saveRDS(gex_task, file = "data/wissel2023/gex_task.rds")
+saveRDS(gex_task, file = "data/wissel2023/gex_task10000.rds")
 
 ## Mutation
 mut_data = data_list$mutation
 feats_to_exclude = names(which(apply(mut_data, 2, var, na.rm = TRUE) == 0)) # remove constant features
-mut_data = mut_data |> select(-all_of(feats_to_exclude))
+mut_data = mut_data |> select(-all_of(feats_to_exclude)) # < 10000 features remain
 data = bind_cols(survival_outcome, mut_data)
 mut_task = as_task_surv(x = data, time = "time", event = "status", id = "mutation")
 mut_task$set_col_roles(cols = "patient_id", roles = "name")
