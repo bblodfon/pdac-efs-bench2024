@@ -5,7 +5,7 @@
 #' e.g. `Rscript bench/run_efs.R wissel2023 gex 42`
 
 # use `renv`
-renv::load()
+#renv::load()
 #renv::deactivate()
 
 # CMD args ----
@@ -32,7 +32,7 @@ subsampling = readRDS(file = file.path(dataset_path, "subsampling.rds"))
 assert_number(rsmp_id, lower = 1, upper = subsampling$iters)
 
 # make directory for results if it doesn't already exist
-res_path = file.path("bench", dataset_id, omic_id)
+res_path = file.path("bench", "efs", dataset_id, omic_id)
 if (!test_directory_exists(res_path)) {
   dir.create(res_path, recursive = TRUE)
 }
@@ -158,6 +158,11 @@ measure = msr("surv.cindex")
 workers = cfg$workers
 future::plan("multisession", workers = workers)
 
+# verbose message printing
+print_msg = function(...) {
+  if (cfg$verbose) cat(...)
+}
+
 # keep execution times
 efs_times = tibble::tibble(id = character(), time = numeric())
 
@@ -184,7 +189,7 @@ if (cfg$use$RSF) {
     aorsf = list(clbk("mlr3fselect.one_se_rule"), ss_clbk)
   )
 
-  cat("# Wrapper-based efs with RANDOM SURVIVAL FORESTS -", length(rsf_lrns), "learners\n")
+  print_msg("# Wrapper-based efs with RANDOM SURVIVAL FORESTS -", length(rsf_lrns), "learners\n")
   start_time = Sys.time()
   set.seed(42) # reproduce: same subsampling
   suppressWarnings({
@@ -204,7 +209,7 @@ if (cfg$use$RSF) {
   })
   stop_time = Sys.time()
   time_diff = round(as.double(stop_time - start_time, units = "secs"), digits = 2)
-  cat(time_diff, "secs\n")
+  print_msg(time_diff, "secs\n")
   efs_times = efs_times |> tibble::add_row(id = "rsf", time = time_diff)
   # saveRDS(efs_rsf, file = file.path(res_path, "efs_rsf.rds"))
 }
@@ -234,10 +239,10 @@ if (cfg$use$XGBoost) {
     clbk("mlr3fselect.internal_tuning", internal_search_space = internal_ss)
   )
 
-  cat("# Wrapper-based efs with XGBOOST -", length(xgb_lrns), "learners\n")
+  print_msg("# Wrapper-based efs with XGBOOST -", length(xgb_lrns), "learners\n")
   efs_list = list()
   for (learner in xgb_lrns) {
-    cat("#", learner$id, "\n")
+    print_msg("#", learner$id, "\n")
 
     xgb_clbk = list(xgb_clbks)
     names(xgb_clbk) = learner$id
@@ -259,7 +264,7 @@ if (cfg$use$XGBoost) {
     )
     stop_time = Sys.time()
     time_diff = round(as.double(stop_time - start_time, units = "secs"), digits = 2)
-    cat(time_diff, "secs\n")
+    print_msg(time_diff, "secs\n")
     efs_times = efs_times |> tibble::add_row(id = learner$id, time = time_diff)
 
     # add to the xgb list
@@ -293,10 +298,10 @@ if (cfg$use$GLMBoost) {
     create_glmb_at(id = "glmb_loglog", family = "loglog", params = glmb_params)
   )
 
-  cat("# Embedded efs with GLMBOOST -", length(glmb_lrns), "learners\n")
+  print_msg("# Embedded efs with GLMBOOST -", length(glmb_lrns), "learners\n")
   efs_list = list()
   for (learner in glmb_lrns) {
-    cat("#", learner$id, "\n")
+    print_msg("#", learner$id, "\n")
 
     start_time = Sys.time()
     set.seed(42) # reproduce: same subsampling
@@ -309,7 +314,7 @@ if (cfg$use$GLMBoost) {
     )
     stop_time = Sys.time()
     time_diff = round(as.double(stop_time - start_time, units = "secs"), digits = 2)
-    cat(time_diff, "secs\n")
+    print_msg(time_diff, "secs\n")
     efs_times = efs_times |> tibble::add_row(id = learner$id, time = time_diff)
 
     # remove rows which had 0 features selected (due to whatever reason) from embedded efs
@@ -331,19 +336,21 @@ if (cfg$use$CoxBoost) {
                  return.score = FALSE, penalty = "optimCoxBoostPenalty",
                  maxstepno = nrounds, K = folds)
 
-  cat("# Embedded efs with COXBOOST learner\n")
+  print_msg("# Embedded efs with COXBOOST learner\n")
   start_time = Sys.time()
   set.seed(42) # reproduce: same subsampling
-  efs_coxb = embedded_ensemble_fselect(
-    task = task,
-    learners = list(coxboost),
-    init_resampling = init_rsmp,
-    measure = measure,
-    store_benchmark_result = store_bmr
-  )
+  suppressWarnings({
+    efs_coxb = embedded_ensemble_fselect(
+      task = task,
+      learners = list(coxboost),
+      init_resampling = init_rsmp,
+      measure = measure,
+      store_benchmark_result = store_bmr
+    )
+  })
   stop_time = Sys.time()
   time_diff = round(as.double(stop_time - start_time, units = "secs"), digits = 2)
-  cat(time_diff, "secs\n")
+  print_msg(time_diff, "secs\n")
   efs_times = efs_times |> tibble::add_row(id = "coxboost", time = time_diff)
 
   # remove rows which had 0 features selected (due to whatever reason) from embedded efs
@@ -359,7 +366,7 @@ if (cfg$use$CoxLasso) {
   coxlasso = lrn("surv.cv_glmnet", id = "coxlasso", standardize = TRUE, alpha = 1,
                  nfolds = folds, type.measure = "C", s = "lambda.min")
 
-  cat("# Embedded efs with COXLASSO learner\n")
+  print_msg("# Embedded efs with COXLASSO learner\n")
   start_time = Sys.time()
   set.seed(42) # reproduce: same subsampling
   efs_coxlasso = embedded_ensemble_fselect(
@@ -371,7 +378,7 @@ if (cfg$use$CoxLasso) {
   )
   stop_time = Sys.time()
   time_diff = round(as.double(stop_time - start_time, units = "secs"), digits = 2)
-  cat(time_diff, "secs\n")
+  print_msg(time_diff, "secs\n")
   efs_times = efs_times |> tibble::add_row(id = "coxlasso", time = time_diff)
 
   # remove rows which had 0 features selected (due to whatever reason) from embedded efs
@@ -396,4 +403,5 @@ saveRDS(efs_all, file = efs_path)
 times_file = file.path(res_path, paste0("timings_efs_", rsmp_id, ".csv"))
 readr::write_csv(efs_times, file = times_file)
 
-cat("Saved results to disk. End!\n")
+# report efs total time
+cat("Total time:", sum(efs_times$time), "secs\n")

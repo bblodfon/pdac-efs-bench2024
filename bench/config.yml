@@ -1,5 +1,6 @@
 default:
   overwrite: TRUE # whether to overwrite the efs result on the disk
+  verbose: 0 # 0: don't print anything, 1: print some info, timings, etc.
   use: # which learner to use in the benchmark (all by default)
     RSF: TRUE
     XGBoost: TRUE
@@ -9,10 +10,10 @@ default:
   logging:
     bbotk_log: !expr lgr::get_logger("bbotk")$set_threshold("warn")
     mlr3_log: !expr lgr::get_logger("mlr3")$set_threshold("warn")
-  workers: 10 # for parallelization
+  workers: 20 # for parallelization
   efs:
     store_bmr: FALSE
-    repeats: 2 # how many subsamples per learner
+    repeats: 100 # how many subsamples per learner
     ratio: 0.8 # % of training data for tuning/feature selection
   learner_params:
     n_trees: 500 # RSFs
