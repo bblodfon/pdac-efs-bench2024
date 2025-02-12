@@ -217,6 +217,14 @@ task_list = mlr3misc::map(names(data_list_flt), function(.data_name) {
 })
 names(task_list) = names(data_list_flt)
 
+# RESAMPLING FOR BENCHMARK ----
+# 100 times => train/test split, stratified by censoring status
+clinical_task = task_list$clinical$clone()
+clinical_task$set_col_roles(cols = "status", add_to = "stratum")
+set.seed(42)
+ss = rsmp("subsampling", ratio = 0.8, repeats = 100)
+ss$instantiate(clinical_task)
+
 # METADATA ----
 metadata = tibble(
   n_patients = task_list$clinical$nrow,
@@ -235,6 +243,7 @@ print(metadata)
 
 # SAVE ALL DATA TO FILES ----
 saveRDS(task_list, file = "data/wissel2023/task_list.rds")
+saveRDS(ss, file = "data/wissel2023/subsampling.rds")
+
 write_csv(metadata, file = "data/wissel2023/metadata.csv")
-all_data_preprocessed = bind_cols(data_list_flt)
-write_csv(all_data_preprocessed, file = "data/wissel2023/all_data_preprocessed.csv")
+write_csv(bind_cols(data_list_flt), file = "data/wissel2023/all_data_preprocessed.csv")
