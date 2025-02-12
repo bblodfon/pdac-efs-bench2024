@@ -11,6 +11,9 @@ suppressPackageStartupMessages({
 source("efs/helpers.R")
 source("efs/callbacks.R")
 
+# task
+task = readRDS(file = "data/wissel2023/task_list.rds")$gex
+
 # Logging
 lgr::get_logger("bbotk")$set_threshold("warn")
 lgr::get_logger("mlr3" )$set_threshold("warn")
@@ -49,7 +52,7 @@ set.seed(42) # reproduce: same subsampling
 suppressWarnings({
   efs_tree_no_calbk = ensemble_fselect(
     fselector = rfe,
-    task = readRDS(file = "data/wissel2023/task_list.rds")$gex,
+    task = task,
     learners = list(lrn("surv.rpart", id = "tree", minsplit = 15)),
     init_resampling = rsmp("subsampling", repeats = 100, ratio = 0.8),
     inner_resampling = rsmp("cv", folds = 5),
@@ -59,7 +62,7 @@ suppressWarnings({
     callbacks = list(
       tree = list(clbk("mlr3fselect.one_se_rule"), ss_clbk)
     ),
-    store_benchmark_result = store_bmr,
+    store_benchmark_result = FALSE,
     store_models = FALSE
   )
 })
