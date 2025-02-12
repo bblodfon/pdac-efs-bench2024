@@ -138,7 +138,7 @@ cat("---------------------\n")
 if (cfg$use$RSF) {
   aorsf_lrn =
     po("removeconstants") %>>%
-    lrn("surv.aorsf", n_tree = 500, control_type = "fast", importance = "permute") |>
+    lrn("surv.aorsf", n_tree = n_trees, control_type = "fast", importance = "permute") |>
     as_learner()
   aorsf_lrn$id = "aorsf"
 
