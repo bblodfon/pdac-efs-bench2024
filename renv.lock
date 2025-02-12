@@ -360,7 +360,7 @@
     },
     "bbotk": {
       "Package": "bbotk",
-      "Version": "1.4.1",
+      "Version": "1.5.0",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
@@ -373,7 +373,7 @@
         "mlr3misc",
         "paradox"
       ],
-      "Hash": "7f8c7901fa00e3d8ab7c79e83b72c277"
+      "Hash": "6958d27bdd186793af1ac164931d44f7"
     },
     "bit": {
       "Package": "bit",
