@@ -1,5 +1,5 @@
 default:
-  overwrite: FALSE # whether to overwrite the efs result on the disk
+  overwrite: TRUE # whether to overwrite the efs result on the disk
   use: # which learner to use in the benchmark (all by default)
     RSF: TRUE
     XGBoost: TRUE
