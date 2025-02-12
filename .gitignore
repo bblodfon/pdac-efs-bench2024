@@ -9,4 +9,5 @@ sysconfig
 data/wissel2023/PAAD_data_preprocessed.csv
 data/osipov2024/43018_2023_697_MOESM3_ESM*
 efs/*/*
-
+bench/wissel2023/*
+bench/osipov2024/*
