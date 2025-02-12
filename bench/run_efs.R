@@ -37,9 +37,6 @@ if (!test_directory_exists(res_path)) {
   dir.create(res_path, recursive = TRUE)
 }
 
-# Print for debugging
-cat("Dataset:", dataset_id, "\nOmic:", omic_id, "\nResampling Iteration:", rsmp_id, "\n")
-
 # LIBRARIES ----
 suppressPackageStartupMessages({
   library(mlr3)
@@ -68,6 +65,14 @@ task$filter(rows = subsampling$train_set(rsmp_id))
 task$set_col_roles(cols = "status", add_to = "stratum") # stratify by status
 
 # CONFIG ----
+# get config parameters from file
+cfg = config::get(file = "bench/config.yml")
+
+# verbose message printing
+print_msg = function(...) {
+  if (cfg$verbose > 0) cat(...)
+}
+
 # Parallelization of XGBoost
 Sys.setenv(OMP_NUM_THREADS = 1)
 Sys.setenv(OMP_THREAD_LIMIT = 1)
@@ -82,9 +87,6 @@ options(progressr.enable = TRUE)
 handlers(on_missing = "ignore", global = TRUE)
 handlers("progress")
 
-# get config parameters from file
-cfg = config::get(file = "bench/config.yml")
-
 # result efs file with ALL results
 efs_path = file.path(res_path, paste0("efs_", rsmp_id, ".rds"))
 
@@ -93,6 +95,11 @@ if (file.exists(efs_path) && !cfg$overwrite) {
   cat("Exiting... results already exist and we don't overwrite\n")
   quit()
 }
+# print some basic info about this run
+print_msg("Dataset:", dataset_id,
+          "\nOmic:", omic_id,
+          "\nResampling Iteration:", rsmp_id,
+          "\n")
 
 # Tuning parameters for learners
 n_trees = cfg$learner_params$n_trees # RSFs
@@ -157,11 +164,6 @@ measure = msr("surv.cindex")
 # Parallelization
 workers = cfg$workers
 future::plan("multisession", workers = workers)
-
-# verbose message printing
-print_msg = function(...) {
-  if (cfg$verbose) cat(...)
-}
 
 # keep execution times
 efs_times = tibble::tibble(id = character(), time = numeric())
@@ -305,13 +307,15 @@ if (cfg$use$GLMBoost) {
 
     start_time = Sys.time()
     set.seed(42) # reproduce: same subsampling
-    efs_glmb = embedded_ensemble_fselect(
-      task = task,
-      learners = list(learner),
-      init_resampling = init_rsmp,
-      measure = measure,
-      store_benchmark_result = store_bmr
-    )
+    suppressWarnings({
+      efs_glmb = embedded_ensemble_fselect(
+        task = task,
+        learners = list(learner),
+        init_resampling = init_rsmp,
+        measure = measure,
+        store_benchmark_result = store_bmr
+      )
+    })
     stop_time = Sys.time()
     time_diff = round(as.double(stop_time - start_time, units = "secs"), digits = 2)
     print_msg(time_diff, "secs\n")
