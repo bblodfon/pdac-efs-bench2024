@@ -5,7 +5,7 @@
 #' e.g. `Rscript bench/run_efs.R wissel2023 gex 42`
 
 # use `renv`
-#renv::load()
+renv::load()
 #renv::deactivate()
 
 # CMD args ----
@@ -40,7 +40,7 @@ if (!test_directory_exists(res_path)) {
 # Print for debugging
 cat("Dataset:", dataset_id, "\nOmic:", omic_id, "\nResampling Iteration:", rsmp_id, "\n")
 
-# load libraries ----
+# LIBRARIES ----
 suppressPackageStartupMessages({
   library(mlr3)
   library(mlr3extralearners)
@@ -90,8 +90,8 @@ efs_path = file.path(res_path, paste0("efs_", rsmp_id, ".rds"))
 
 # if results exist, don't run again
 if (file.exists(efs_path) && !cfg$overwrite) {
-  cat("Results already exist but we don't overwrite them")
-  return(NULL)
+  cat("Exiting... results already exist and we don't overwrite\n")
+  quit()
 }
 
 # Tuning parameters for learners
@@ -203,10 +203,9 @@ if (cfg$use$RSF) {
     )
   })
   stop_time = Sys.time()
-  time_diff = as.double(stop_time - start_time, units = "secs")
-  cat(round(time_diff, digits = 2), "secs\ns")
+  time_diff = round(as.double(stop_time - start_time, units = "secs"), digits = 2)
+  cat(time_diff, "secs\n")
   efs_times = efs_times |> tibble::add_row(id = "rsf", time = time_diff)
-
   # saveRDS(efs_rsf, file = file.path(res_path, "efs_rsf.rds"))
 }
 
@@ -259,8 +258,8 @@ if (cfg$use$XGBoost) {
       store_models = FALSE
     )
     stop_time = Sys.time()
-    time_diff = as.double(stop_time - start_time, units = "secs")
-    cat(round(time_diff, digits = 2), "secs\n")
+    time_diff = round(as.double(stop_time - start_time, units = "secs"), digits = 2)
+    cat(time_diff, "secs\n")
     efs_times = efs_times |> tibble::add_row(id = learner$id, time = time_diff)
 
     # add to the xgb list
@@ -309,8 +308,8 @@ if (cfg$use$GLMBoost) {
       store_benchmark_result = store_bmr
     )
     stop_time = Sys.time()
-    time_diff = as.double(stop_time - start_time, units = "secs")
-    cat(round(time_diff, digits = 2), "secs\n")
+    time_diff = round(as.double(stop_time - start_time, units = "secs"), digits = 2)
+    cat(time_diff, "secs\n")
     efs_times = efs_times |> tibble::add_row(id = learner$id, time = time_diff)
 
     # remove rows which had 0 features selected (due to whatever reason) from embedded efs
@@ -343,8 +342,8 @@ if (cfg$use$CoxBoost) {
     store_benchmark_result = store_bmr
   )
   stop_time = Sys.time()
-  time_diff = as.double(stop_time - start_time, units = "secs")
-  cat(round(time_diff, digits = 2), "secs\n")
+  time_diff = round(as.double(stop_time - start_time, units = "secs"), digits = 2)
+  cat(time_diff, "secs\n")
   efs_times = efs_times |> tibble::add_row(id = "coxboost", time = time_diff)
 
   # remove rows which had 0 features selected (due to whatever reason) from embedded efs
@@ -371,8 +370,8 @@ if (cfg$use$CoxLasso) {
     store_benchmark_result = store_bmr
   )
   stop_time = Sys.time()
-  time_diff = as.double(stop_time - start_time, units = "secs")
-  cat(round(time_diff, digits = 2), "secs\n")
+  time_diff = round(as.double(stop_time - start_time, units = "secs"), digits = 2)
+  cat(time_diff, "secs\n")
   efs_times = efs_times |> tibble::add_row(id = "coxlasso", time = time_diff)
 
   # remove rows which had 0 features selected (due to whatever reason) from embedded efs
@@ -396,3 +395,5 @@ saveRDS(efs_all, file = efs_path)
 # save timings
 times_file = file.path(res_path, paste0("timings_efs_", rsmp_id, ".csv"))
 readr::write_csv(efs_times, file = times_file)
+
+cat("Saved results to disk. End!\n")
