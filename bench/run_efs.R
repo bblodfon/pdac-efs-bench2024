@@ -174,20 +174,20 @@ if (cfg$use$RSF) {
     lrn("surv.ranger", id = "rsf_logrank", num.trees = n_trees,
         importance = "permutation", splitrule = "logrank"),
     lrn("surv.ranger", id = "rsf_maxstat", num.trees = n_trees,
-        importance = "permutation", splitrule = "maxstat")#,
-    #aorsf_lrn
+        importance = "permutation", splitrule = "maxstat"),
+    aorsf_lrn
   )
 
   rsf_clbks = list(
     rsf_logrank = list(clbk("mlr3fselect.one_se_rule"), ss_clbk),
-    rsf_maxstat = list(clbk("mlr3fselect.one_se_rule"), ss_clbk)#,
-    #aorsf = list(clbk("mlr3fselect.one_se_rule"), ss_clbk)
+    rsf_maxstat = list(clbk("mlr3fselect.one_se_rule"), ss_clbk),
+    aorsf = list(clbk("mlr3fselect.one_se_rule"), ss_clbk)
   )
 
   cat("# Wrapper-based efs with RANDOM SURVIVAL FORESTS -", length(rsf_lrns), "learners\n")
   start_time = Sys.time()
   set.seed(42) # reproduce: same subsampling
-  #suppressWarnings({
+  suppressWarnings({
     efs_rsf = ensemble_fselect(
       fselector = rfe,
       task = task,
@@ -201,10 +201,10 @@ if (cfg$use$RSF) {
       store_benchmark_result = store_bmr,
       store_models = FALSE
     )
-  #})
+  })
   stop_time = Sys.time()
   time_diff = as.double(stop_time - start_time, units = "secs")
-  cat(round(time_diff, digits = 2), "secs")
+  cat(round(time_diff, digits = 2), "secs\ns")
   efs_times = efs_times |> tibble::add_row(id = "rsf", time = time_diff)
 
   # saveRDS(efs_rsf, file = file.path(res_path, "efs_rsf.rds"))
@@ -260,7 +260,7 @@ if (cfg$use$XGBoost) {
     )
     stop_time = Sys.time()
     time_diff = as.double(stop_time - start_time, units = "secs")
-    cat(round(time_diff, digits = 2), "secs")
+    cat(round(time_diff, digits = 2), "secs\n")
     efs_times = efs_times |> tibble::add_row(id = learner$id, time = time_diff)
 
     # add to the xgb list
@@ -310,7 +310,7 @@ if (cfg$use$GLMBoost) {
     )
     stop_time = Sys.time()
     time_diff = as.double(stop_time - start_time, units = "secs")
-    cat(round(time_diff, digits = 2), "secs")
+    cat(round(time_diff, digits = 2), "secs\n")
     efs_times = efs_times |> tibble::add_row(id = learner$id, time = time_diff)
 
     # remove rows which had 0 features selected (due to whatever reason) from embedded efs
@@ -344,7 +344,7 @@ if (cfg$use$CoxBoost) {
   )
   stop_time = Sys.time()
   time_diff = as.double(stop_time - start_time, units = "secs")
-  cat(round(time_diff, digits = 2), "secs")
+  cat(round(time_diff, digits = 2), "secs\n")
   efs_times = efs_times |> tibble::add_row(id = "coxboost", time = time_diff)
 
   # remove rows which had 0 features selected (due to whatever reason) from embedded efs
@@ -372,7 +372,7 @@ if (cfg$use$CoxLasso) {
   )
   stop_time = Sys.time()
   time_diff = as.double(stop_time - start_time, units = "secs")
-  cat(round(time_diff, digits = 2), "secs")
+  cat(round(time_diff, digits = 2), "secs\n")
   efs_times = efs_times |> tibble::add_row(id = "coxlasso", time = time_diff)
 
   # remove rows which had 0 features selected (due to whatever reason) from embedded efs
