@@ -6,7 +6,7 @@
 
 # Define paths
 DATA_DIR="data"
-EFS_SCRIPT="Rscript bench/run_efs.R"
+EFS_SCRIPT="Rscript bench/efs.R"
 
 # Define dataset IDs manually or leave empty to process all in data/
 DATASET_IDS=()  # Example: ("wissel2023") or ("osipov2024") or leave empty to process all
