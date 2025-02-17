@@ -164,7 +164,7 @@ measure = msr("surv.cindex")
 
 # Parallelization
 workers = cfg$workers
-future::plan("multisession", workers = workers)
+future::plan("multicore", workers = workers)
 
 # keep execution times
 efs_times = tibble::tibble(id = character(), time = numeric())
