@@ -32,7 +32,7 @@ subsampling = readRDS(file = file.path(dataset_path, "subsampling.rds"))
 assert_number(rsmp_id, lower = 1, upper = subsampling$iters)
 
 # make directory for results if it doesn't already exist
-res_path = file.path("bench", "fs", dataset_id, omic_id)
+res_path = file.path("bench", "efs", dataset_id, omic_id)
 if (!test_directory_exists(res_path)) {
   dir.create(res_path, recursive = TRUE)
 }
@@ -95,6 +95,7 @@ if (file.exists(efs_path) && !cfg$overwrite) {
   cat("Exiting... results already exist and we don't overwrite\n")
   quit()
 }
+
 # print some basic info about this run
 print_msg("Dataset:", dataset_id,
           "\nOmic:", omic_id,
@@ -404,7 +405,7 @@ efs_all = do.call(c, efs_list)
 saveRDS(efs_all, file = efs_path)
 
 # save timings
-times_file = file.path(res_path, paste0("times_efs_", rsmp_id, ".csv"))
+times_file = file.path(res_path, paste0("times_", rsmp_id, ".csv"))
 readr::write_csv(efs_times, file = times_file)
 
 # report efs total time
