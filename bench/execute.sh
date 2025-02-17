@@ -1,4 +1,0 @@
-Rscript bench.R
-
-
-
