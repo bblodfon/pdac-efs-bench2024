@@ -1,8 +1,8 @@
 #' This script runs the ensemble feature selection procedure, for a specific
 #' dataset, omic and resampling id (train set)
 #'
-#' Execute: `Rscript bench/run_efs.R <dataset_id> <omic_id> <rsmp_id>` (from project root)
-#' e.g. `Rscript bench/run_efs.R wissel2023 gex 42`
+#' Execute: `Rscript bench/efs.R <dataset_id> <omic_id> <rsmp_id>` (from project root)
+#' e.g. `Rscript bench/efs.R wissel2023 gex 42`
 
 # use `renv`
 #renv::load()
@@ -12,7 +12,7 @@
 args = commandArgs(trailingOnly = TRUE)
 
 if (length(args) != 3) {
-  stop("Usage: Rscript bench/run_efs.R <dataset_id> <omic_id> <rsmp_id>")
+  stop("Usage: Rscript bench/efs.R <dataset_id> <omic_id> <rsmp_id>")
 }
 
 dataset_id = args[1]
@@ -32,7 +32,7 @@ subsampling = readRDS(file = file.path(dataset_path, "subsampling.rds"))
 assert_number(rsmp_id, lower = 1, upper = subsampling$iters)
 
 # make directory for results if it doesn't already exist
-res_path = file.path("bench", "efs", dataset_id, omic_id)
+res_path = file.path("bench", "fs", dataset_id, omic_id)
 if (!test_directory_exists(res_path)) {
   dir.create(res_path, recursive = TRUE)
 }
@@ -404,7 +404,7 @@ efs_all = do.call(c, efs_list)
 saveRDS(efs_all, file = efs_path)
 
 # save timings
-times_file = file.path(res_path, paste0("timings_efs_", rsmp_id, ".csv"))
+times_file = file.path(res_path, paste0("times_efs_", rsmp_id, ".csv"))
 readr::write_csv(efs_times, file = times_file)
 
 # report efs total time

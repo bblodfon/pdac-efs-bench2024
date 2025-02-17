@@ -1,13 +1,15 @@
 #!/bin/bash
+#' This script runs the ensmeble feature selection method on a specific
+#' set of datasets, omics and resampling ids.
 
-# Execute: bash run_benchmark.sh
+#' Execute: `bash bench/run_efs.sh` (from project root)
 
 # Define paths
 DATA_DIR="data"
-SCRIPT="Rscript bench/run_efs.R"
+EFS_SCRIPT="Rscript bench/run_efs.R"
 
 # Define dataset IDs manually or leave empty to process all in data/
-DATASET_IDS=()  # Example: ("wissel2023" "another_dataset") or leave empty to process all
+DATASET_IDS=()  # Example: ("wissel2023") or ("osipov2024") or leave empty to process all
 
 # Define omic IDs manually or leave empty to read from omic_ids.csv
 OMIC_IDS=()  # Example: ("gex" "cnv")
@@ -38,12 +40,14 @@ for dataset_id in "${DATASET_IDS[@]}"; do
         omic_ids=("${OMIC_IDS[@]}")
     fi
 
+    echo "$omics_ids"
+
     # Loop over omic IDs
     for omic_id in "${omic_ids[@]}"; do
         # Loop over rsmp_id values
         for rsmp_id in "${RSMP_IDS[@]}"; do
-            echo "Running: $SCRIPT $dataset_id $omic_id $rsmp_id"
-            $SCRIPT "$dataset_id" "$omic_id" "$rsmp_id"
+            echo "Running: $EFS_SCRIPT $dataset_id $omic_id $rsmp_id"
+            $EFS_SCRIPT "$dataset_id" "$omic_id" "$rsmp_id"
         done
     done
 done

@@ -12,3 +12,4 @@ efs/*/*
 bench/wissel2023/*
 bench/osipov2024/*
 test/*
+bench/fs/*
