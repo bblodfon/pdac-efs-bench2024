@@ -19,7 +19,8 @@ suppressPackageStartupMessages({
 #' Data preprocessing script: https://github.com/BoevaLab/Multi-omics-noise-resistance/blob/main/noise_resistance/R/prep/prepare_tcga_data.R
 
 # DATA ----
-csv_datafile = "data/wissel2023/PAAD_data_preprocessed.csv"
+dataset_path = file.path("data", "wissel2023")
+csv_datafile = file.path(dataset_path, "PAAD_data_preprocessed.csv")
 all_data = readr::read_csv(file = csv_datafile, show_col_types = FALSE)
 dim(all_data) # 108 x 84720
 
@@ -172,7 +173,7 @@ gex_data = gex_data |> select(all_of(features_to_keep))
 data = bind_cols(survival_outcome, gex_data)
 gex_task = as_task_surv(x = data, time = "time", event = "status", id = "gex")
 gex_task$set_col_roles(cols = "patient_id", roles = "name")
-saveRDS(gex_task, file = "data/wissel2023/gex_task10000.rds")
+saveRDS(gex_task, file = file.path(dataset_path, "gex_task10000.rds"))
 
 ## Mutation
 mut_data = data_list$mutation
@@ -181,7 +182,7 @@ mut_data = mut_data |> select(-all_of(feats_to_exclude)) # < 10000 features rema
 data = bind_cols(survival_outcome, mut_data)
 mut_task = as_task_surv(x = data, time = "time", event = "status", id = "mutation")
 mut_task$set_col_roles(cols = "patient_id", roles = "name")
-saveRDS(mut_task, file = "data/wissel2023/mut_task.rds")
+saveRDS(mut_task, file = file.path(dataset_path, "mut_task.rds"))
 
 # Pre-filter features (variance) ----
 # keep only the top 2000 features with the highest variance per omic
@@ -242,8 +243,10 @@ metadata = tibble(
 print(metadata)
 
 # SAVE ALL DATA TO FILES ----
-saveRDS(task_list, file = "data/wissel2023/task_list.rds")
-saveRDS(ss, file = "data/wissel2023/subsampling.rds")
+saveRDS(task_list, file = file.path(dataset_path, "task_list.rds"))
+saveRDS(ss, file = file.path(dataset_path, "subsampling.rds"))
 
-write_csv(metadata, file = "data/wissel2023/metadata.csv")
-write_csv(bind_cols(data_list_flt), file = "data/wissel2023/all_data_preprocessed.csv")
+omic_ids = data.frame(omic_id = setdiff(names(task_list), "clinical"))
+write_csv(omic_ids, file = file.path(dataset_path, "omic_ids.csv"), col_names = FALSE)
+write_csv(metadata, file = file.path(dataset_path, "metadata.csv"))
+write_csv(bind_cols(data_list), file = file.path(dataset_path, "all_data_preprocessed.csv"))

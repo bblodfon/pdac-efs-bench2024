@@ -20,7 +20,8 @@ suppressPackageStartupMessages({
 #' 1) all samples are PDACs and 2) all patients Stage III and IV have been excluded
 
 # DATA ----
-csv_datafile = "data/osipov2024/43018_2023_697_MOESM3_ESM.csv"
+dataset_path = file.path("data", "osipov2024")
+csv_datafile = file.path(dataset_path, "43018_2023_697_MOESM3_ESM.csv")
 all_data = readr::read_csv(file = csv_datafile, show_col_types = FALSE)
 dim(all_data) # 74 x 6361
 
@@ -358,8 +359,10 @@ metadata = tibble(
 print(metadata)
 
 # SAVE ALL DATA TO FILES ----
-saveRDS(task_list, file = "data/osipov2024/task_list.rds")
-saveRDS(ss, file = "data/osipov2024/subsampling.rds")
+saveRDS(task_list, file = file.path(dataset_path, "task_list.rds"))
+saveRDS(ss, file = file.path(dataset_path, "subsampling.rds"))
 
-write_csv(metadata, file = "data/osipov2024/metadata.csv")
-write_csv(bind_cols(data_list), file = "data/osipov2024/all_data_preprocessed.csv")
+omic_ids = data.frame(omic_id = setdiff(names(task_list), "clinical"))
+write_csv(omic_ids, file = file.path(dataset_path, "omic_ids.csv"), col_names = FALSE)
+write_csv(metadata, file = file.path(dataset_path, "metadata.csv"))
+write_csv(bind_cols(data_list), file = file.path(dataset_path, "all_data_preprocessed.csv"))

@@ -8,8 +8,9 @@ Osipov et al. (2024) The Molecular Twin artificial-intelligence platform integra
 
 - `metadata.csv`: metadata info
 - `preprocess_osipov.R`: the preprocessing script
-- `all_data_preprocessed.csv`: preprocessed data from all patients and modalities
-- `task_list.rds`: `mlr3` survival tasks, one per modality
+- `all_data_preprocessed.csv`: preprocessed data from all patients and data types
+- `omic_ids.csv`: ids for all the omics preprocessed
+- `task_list.rds`: `mlr3` survival tasks, one per data type
 - `subsampling.rds`: mlr3 subsampling object for the benchmark (100 subsamplings, 80/20 train/test set splits, stratified by status)
 
 ## Data summary
