@@ -23,7 +23,7 @@ source("efs/helpers.R")
 source("efs/callbacks.R")
 
 # SETUP CONFIG ----
-cfg = config::get() # from `config.yaml`
+cfg = config::get(file = "efs/config.yml")
 
 # dir to save results
 save_dir = file.path(cfg$results_dir, cfg$dataset_id)
