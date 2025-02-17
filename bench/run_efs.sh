@@ -1,5 +1,5 @@
 #!/bin/bash
-#' This script runs the ensmeble feature selection method on a specific
+#' This script runs the ensemble feature selection method on a specific
 #' set of datasets, omics and resampling ids.
 
 #' Execute: `bash bench/run_efs.sh` (from project root)
@@ -22,6 +22,29 @@ if [[ ${#DATASET_IDS[@]} -eq 0 ]]; then
     DATASET_IDS=($(basename -a "$DATA_DIR"/*/))
 fi
 
+# Calculate total number of iterations for progress tracking
+TOTAL_RUNS=0
+for dataset_id in "${DATASET_IDS[@]}"; do
+    dataset_path="$DATA_DIR/$dataset_id"
+
+    omic_file="$dataset_path/omic_ids.csv"
+    if [[ -f "$omic_file" ]]; then
+        if [[ ${#OMIC_IDS[@]} -eq 0 ]]; then
+            mapfile -t omic_ids < "$omic_file"
+        else
+            omic_ids=("${OMIC_IDS[@]}")
+        fi
+        for omic_id in "${omic_ids[@]}"; do
+            for rsmp_id in "${RSMP_IDS[@]}"; do
+                ((TOTAL_RUNS++))
+            done
+        done
+    fi
+done
+
+# Track progress
+CURRENT_RUN=0
+
 # Loop over datasets
 for dataset_id in "${DATASET_IDS[@]}"; do
     dataset_path="$DATA_DIR/$dataset_id"
@@ -40,13 +63,13 @@ for dataset_id in "${DATASET_IDS[@]}"; do
         omic_ids=("${OMIC_IDS[@]}")
     fi
 
-    echo "$omics_ids"
-
     # Loop over omic IDs
     for omic_id in "${omic_ids[@]}"; do
         # Loop over rsmp_id values
         for rsmp_id in "${RSMP_IDS[@]}"; do
-            echo "Running: $EFS_SCRIPT $dataset_id $omic_id $rsmp_id"
+            ((CURRENT_RUN++))
+            PERCENT_DONE=$((CURRENT_RUN * 100 / TOTAL_RUNS))
+            echo "[$PERCENT_DONE%] Running: $EFS_SCRIPT $dataset_id $omic_id $rsmp_id"
             $EFS_SCRIPT "$dataset_id" "$omic_id" "$rsmp_id"
         done
     done
