@@ -6,7 +6,6 @@
 
 # use `renv`
 #renv::load()
-#renv::deactivate()
 
 # CMD args ----
 args = commandArgs(trailingOnly = TRUE)
@@ -45,7 +44,6 @@ suppressPackageStartupMessages({
   library(mlr3fselect)
   library(mlr3tuning)
   library(mlr3pipelines)
-  library(rpart)
   library(ranger)
   library(aorsf)
   library(xgboost)
