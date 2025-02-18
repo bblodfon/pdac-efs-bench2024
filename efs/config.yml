@@ -1,12 +1,10 @@
 default:
-  #tasks: !expr readRDS(file = "data/wissel2023/task_list.rds") # All omics (<2K features)
-  # select task from .rds file for efs
-  #task: !expr readRDS(file = "data/wissel2023/task_list.rds")$gex # Wissel GEX (2K features)
+  # select task from .rds file
+  task: !expr readRDS(file = "data/wissel2023/task_list.rds")$gex # Wissel GEX (2K features)
   #task: !expr readRDS(file = "data/osipov2024/task_list.rds")$snv # SNV - Osipov (274 features)
   #task: !expr readRDS(file = "data/wissel2023/gex_task10000.rds") # Wissel GEX (~10K features)
-  task: !expr readRDS(file = "data/wissel2023/mut_task.rds") # Wissel Mutation (~10K features)
-  # which learner to use in the benchmark
-  use:
+  #task: !expr readRDS(file = "data/wissel2023/mut_task.rds") # Wissel Mutation (~10K features)
+  use: # which learner to use in the benchmark
     RSF: TRUE
     XGBoost: TRUE
     GLMBoost: TRUE
@@ -20,7 +18,7 @@ default:
   workers: 10 # for parallelization
   efs:
     store_bmr: FALSE
-    repeats: 100 # how many subsamples per learner
+    repeats: 10 # how many subsamples per learner
     ratio: 0.8 # % of training data for tuning/feature selection
   learner_params:
     n_trees: 500 # RSFs
