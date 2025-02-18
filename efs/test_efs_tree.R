@@ -1,5 +1,5 @@
 #' test efs with a survival tree learner
-#' Run: `Rscript efs/test_bench.R` (from project root)
+#' Run: `Rscript efs/test_efs_tree.R` (from project root)
 
 suppressPackageStartupMessages({
   library(mlr3)
