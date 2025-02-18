@@ -27,7 +27,7 @@ handlers(on_missing = "ignore", global = TRUE)
 handlers("progress")
 
 # parallelization
-future::plan("multicore", workers = 10)
+future::plan("multisession", workers = 10)
 
 # Get RFE iters/subset_sizes
 n_features = 2 # RFE => stopping criterion (run up to this number of features)
@@ -71,4 +71,5 @@ suppressWarnings({
 })
 toc()
 
-saveRDS(efs_tree, file = paste0("efs/tree_efs.rds"))
+saveRDS(efs_tree, file = "efs/tree_efs.rds")
+# efs = readRDS(file = "efs/tree_efs.rds")
