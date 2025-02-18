@@ -1,3 +1,6 @@
+#' test efs with a survival tree learner
+#' Run: `Rscript efs/test_bench.R` (from project root)
+
 suppressPackageStartupMessages({
   library(mlr3)
   library(mlr3proba)
@@ -24,7 +27,7 @@ handlers(on_missing = "ignore", global = TRUE)
 handlers("progress")
 
 # parallelization
-future::plan("multisession", workers = 10)
+future::plan("multicore", workers = 10)
 
 # Get RFE iters/subset_sizes
 n_features = 2 # RFE => stopping criterion (run up to this number of features)
@@ -50,11 +53,11 @@ cat("# Wrapper-based efs with SURVIVAL TREE")
 tic()
 set.seed(42) # reproduce: same subsampling
 suppressWarnings({
-  efs_tree_no_calbk = ensemble_fselect(
+  efs_tree = ensemble_fselect(
     fselector = rfe,
     task = task,
     learners = list(lrn("surv.rpart", id = "tree", minsplit = 15)),
-    init_resampling = rsmp("subsampling", repeats = 100, ratio = 0.8),
+    init_resampling = rsmp("subsampling", repeats = 40, ratio = 0.8),
     inner_resampling = rsmp("cv", folds = 5),
     inner_measure = msr("surv.cindex"),
     measure = msr("surv.cindex"),
@@ -68,4 +71,4 @@ suppressWarnings({
 })
 toc()
 
-# saveRDS(efs_tree, file = paste0("efs/", task$id, "/efs_tree.rds"))
+saveRDS(efs_tree, file = paste0("efs/tree_efs.rds"))
