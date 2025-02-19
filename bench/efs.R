@@ -89,8 +89,8 @@ handlers("progress")
 efs_path = file.path(res_path, paste0("efs_", rsmp_id, ".rds"))
 
 # if results exist, don't run again
-if (file.exists(efs_path) && !cfg$overwrite) {
-  cat("Exiting... results already exist and we don't overwrite\n")
+if (file.exists(efs_path) && !cfg$recompute) {
+  cat("Exiting... results already exist and we don't recompute them\n")
   quit()
 }
 
