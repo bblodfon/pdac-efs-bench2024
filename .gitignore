@@ -14,3 +14,4 @@ bench/osipov2024/*
 bench/efs/*
 test/*
 bench/fs/*
+efs/tree_efs.rds
