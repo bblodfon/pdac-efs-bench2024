@@ -1,5 +1,5 @@
 default:
-  overwrite: TRUE # whether to overwrite the efs result on the disk
+  overwrite: FALSE # whether to overwrite the efs result on the disk
   verbose: 0 # 0: don't print anything, 1: print some info, timings, etc.
   # which learner(s) to use in the benchmark (1 = use, 0 = don't use)
   use: !expr list(RSF = 1, AORSF = 1, XGBoost = 1, GLMBoost = 1, CoxBoost = 1, CoxLasso = 1)
