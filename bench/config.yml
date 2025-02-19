@@ -1,16 +1,12 @@
 default:
   overwrite: TRUE # whether to overwrite the efs result on the disk
   verbose: 0 # 0: don't print anything, 1: print some info, timings, etc.
-  use: # which learner to use in the benchmark (all by default)
-    RSF: TRUE
-    XGBoost: TRUE
-    GLMBoost: TRUE
-    CoxBoost: TRUE
-    CoxLasso: TRUE
+  # which learner(s) to use in the benchmark (1 = use, 0 = don't use)
+  use: !expr list(RSF = 1, AORSF = 1, XGBoost = 1, GLMBoost = 1, CoxBoost = 1, CoxLasso = 1)
   logging:
     bbotk_log: !expr lgr::get_logger("bbotk")$set_threshold("warn")
     mlr3_log: !expr lgr::get_logger("mlr3")$set_threshold("warn")
-  workers: 20 # for parallelization
+  workers: 10 # for parallelization
   efs:
     store_bmr: FALSE
     repeats: 100 # how many subsamples per learner

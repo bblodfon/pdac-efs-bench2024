@@ -4,12 +4,8 @@ default:
   #task: !expr readRDS(file = "data/osipov2024/task_list.rds")$snv # SNV - Osipov (274 features)
   #task: !expr readRDS(file = "data/wissel2023/gex_task10000.rds") # Wissel GEX (~10K features)
   #task: !expr readRDS(file = "data/wissel2023/mut_task.rds") # Wissel Mutation (~10K features)
-  use: # which learner to use in the benchmark
-    RSF: TRUE
-    XGBoost: TRUE
-    GLMBoost: TRUE
-    CoxBoost: TRUE
-    CoxLasso: TRUE
+  # which learner(s) to use in the benchmark (1 = use, 0 = don't use)
+  use: !expr list(RSF = 1, AORSF = 1, XGBoost = 1, GLMBoost = 1, CoxBoost = 1, CoxLasso = 1)
   results_dir: "sensitivity_analysis" # also: "test"
   dataset_id: "wissel2023" # also: "osipov2024"
   logging:

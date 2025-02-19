@@ -137,28 +137,20 @@ cat("---------------------\n")
 # EFS (WRAPPED-BASED FS) ----
 ## RSFs ----
 if (cfg$use$RSF) {
-  aorsf_lrn =
-    po("removeconstants") %>>%
-    lrn("surv.aorsf", n_tree = n_trees, control_type = "fast", importance = "permute") |>
-    as_learner()
-  aorsf_lrn$id = "aorsf"
-
   rsf_lrns = list(
     lrn("surv.ranger", id = "rsf_logrank", num.trees = n_trees,
         importance = "permutation", splitrule = "logrank"),
     lrn("surv.ranger", id = "rsf_maxstat", num.trees = n_trees,
-        importance = "permutation", splitrule = "maxstat"),
-    aorsf_lrn
+        importance = "permutation", splitrule = "maxstat")
   )
 
   rsf_clbks = list(
     rsf_logrank = list(clbk("mlr3fselect.one_se_rule"), ss_clbk),
-    rsf_maxstat = list(clbk("mlr3fselect.one_se_rule"), ss_clbk),
-    aorsf = list(clbk("mlr3fselect.one_se_rule"), ss_clbk)
+    rsf_maxstat = list(clbk("mlr3fselect.one_se_rule"), ss_clbk)
   )
 
-  cat("# Wrapper-based efs with RANDOM SURVIVAL FORESTS -", length(rsf_lrns), "learners\n")
-  tic()
+  print_msg("# Wrapper-based efs with RANDOM SURVIVAL FORESTS -", length(rsf_lrns), "learners\n")
+  start_time = Sys.time()
   set.seed(42) # reproduce: same subsampling
   suppressWarnings({
     efs_rsf = ensemble_fselect(
@@ -175,9 +167,51 @@ if (cfg$use$RSF) {
       store_models = FALSE
     )
   })
-  toc()
+  stop_time = Sys.time()
+  time_diff = round(as.double(stop_time - start_time, units = "secs"), digits = 2)
+  print_msg(time_diff, "secs\n")
+  efs_times = efs_times |> tibble::add_row(id = "rsf", time = time_diff)
+  # saveRDS(efs_rsf, file = file.path(res_path, "efs_rsf.rds"))
+}
 
-  saveRDS(efs_rsf, file = file.path(save_dir, task$id, "efs_rsf.rds"))
+## AORSF ----
+if (cfg$use$AORSF) {
+  aorsf_lrn =
+    po("removeconstants") %>>%
+    lrn("surv.aorsf", n_tree = n_trees, control_type = "fast", importance = "permute") |>
+    as_learner()
+  aorsf_lrn$id = "aorsf"
+  aorsf_clbks = list(aorsf = list(clbk("mlr3fselect.one_se_rule"), ss_clbk))
+
+  print_msg("# Wrapper-based efs with ACCELERATED OBLIQUE RANDOM SURVIVAL FOREST - 1 learner\n")
+  start_time = Sys.time()
+  set.seed(42) # reproduce: same subsampling
+  efs_aorsf = tryCatch({
+    suppressWarnings({
+      efs_aorsf = ensemble_fselect(
+        fselector = rfe,
+        task = task,
+        learners = list(aorsf_lrn),
+        init_resampling = init_rsmp,
+        inner_resampling = rsmp("insample"), # use all training data
+        inner_measure = msr("oob_error"), # 1 - C-index
+        measure = measure,
+        terminator = terminator,
+        callbacks = aorsf_clbks,
+        store_benchmark_result = store_bmr,
+        store_models = FALSE
+      )
+    })
+    stop_time = Sys.time()
+    time_diff = round(as.double(stop_time - start_time, units = "secs"), digits = 2)
+    print_msg(time_diff, "secs\n")
+    efs_times = efs_times |> tibble::add_row(id = "aorsf", time = time_diff)
+    # saveRDS(efs_aorsf, file = file.path(res_path, "efs_aorsf.rds"))
+    efs_aorsf
+  }, error = function(e) {
+    message("[ERROR]: ", e$message)
+    NULL # Return NULL in case of error
+  })
 }
 
 ## XGBOOST ----
