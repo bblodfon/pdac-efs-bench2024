@@ -73,7 +73,7 @@ feature_selection = function(params, p) {
   rsmp_id = params$rsmp_id
 
   #' Notify progress via `p = progressr::progressor()`
-  p(sprintf("Dataset: %s, #Omic: %s, #Subsampling Iter: %i", dataset_id, omic_id, rsmp_id))
+  p(sprintf("Dataset: %s, Omic: %s, Subsampling Iter: %i", dataset_id, omic_id, rsmp_id))
 
   # Load ensemble feature selection (EFS) results
   file_name = file.path("bench", "efs", dataset_id, omic_id, paste0("efs_", rsmp_id, ".rds"))
@@ -82,9 +82,8 @@ feature_selection = function(params, p) {
   # SELECT FEATURES via EFS
   pf_nfeats = efs$pareto_front()$n_features
   if (length(unique(pf_nfeats)) == 1) {
-    cat(sprintf("[WARNING]: All Pareto front points have the same number of features (%i),
-                Dataset: %s, #Omic: %s, #Subsampling Iter: %i\n", pf_nfeats[1L],
-                dataset_id, omic_id, rsmp_id))
+    cat(sprintf("[WARNING]: All Pareto front points have the same number of features (%i), Dataset: %s, Omic: %s, Subsampling Iter: %i\n",
+                pf_nfeats[1L], dataset_id, omic_id, rsmp_id))
     n_feats = pf_nfeats[1L]
   } else {
     # Choose max features from empirical ePF for upper limit of the estimated PF
