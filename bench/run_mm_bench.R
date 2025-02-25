@@ -87,14 +87,18 @@ feature_selection = function(params, p) {
                 pf_nfeats[1L], dataset_id, omic_id, rsmp_id))
     n_feats = pf_nfeats[1L]
   } else {
-    # Choose max features from empirical ePF for upper limit of the estimated PF
-    # Use 20, if PF doesn't have points with more features than that
-    pf_pruned = pf[c(TRUE, diff(surv.cindex) > 0.0001)]
+    if (FALSE) {
+      # Small investigation
+      # Choose max features for upper limit of the estimated PF
+      epf = efs$pareto_front(type = "estimated", max_nfeatures = 100)
+      pf0001 = epf[c(TRUE, diff(surv.cindex) > 0.0001)] # more strict, higher upper limit
+      pf001 = epf[c(TRUE, diff(surv.cindex) > 0.001)] # less strict, lower upper limit
+      cat(sprintf("[CHECK]: %i,%i,%i,%i\n", max(efs$result$n_features), max(pf_nfeats), max(pf0001$n_features), max(pf001$n_features)))
+    }
 
-    cat(sprintf("[CHECK]: Max #features in empirical PF: %i, Max #features in efs result: %i, Max #features in pruned PF (eps = 0.0001): %i", max(pf$n_features), max(efs$result$n_features), max(pf_pruned$n_features)))
-
-    max_nfeats = max(max(pf_nfeats), 20)
+    max_nfeats = max(pf_nfeats)
     n_feats = efs$knee_points(type = "estimated", max_nfeatures = max_nfeats)$n_features
+    # n_feats = efs$knee_points()$n_features # or use empirical Pareto front directly
   }
 
   efs_feats = efs$feature_ranking(
@@ -115,7 +119,8 @@ feature_selection = function(params, p) {
 
   # if zero features, take the next lambda
   if (length(coxlasso_feats) == 0) {
-    cat("[WARNING]: CoxLasso results in zero selected features\n")
+    cat("[WARNING]: CoxLasso results in 0 selected features, Dataset: %s, Omic: %s, Subsampling Iter: %i\n",
+        dataset_id, omic_id, rsmp_id)
     for (lambda in coxlasso$model$model$lambda) {
       coxlasso_feats = coxlasso$selected_features(lambda = lambda)
       if (length(coxlasso_feats) > 0) break
