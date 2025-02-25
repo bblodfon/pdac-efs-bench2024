@@ -33,7 +33,7 @@ suppressPackageStartupMessages({
 })
 
 # Set parallel execution
-plan("multicore", workers = 15)
+plan("multicore", workers = 30)
 
 # Enable progress bars
 options(progressr.enable = TRUE)
