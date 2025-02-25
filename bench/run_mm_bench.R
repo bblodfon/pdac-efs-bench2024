@@ -80,7 +80,8 @@ feature_selection = function(params, p) {
   efs = readRDS(file_name)
 
   # SELECT FEATURES via EFS
-  pf_nfeats = efs$pareto_front()$n_features
+  pf = efs$pareto_front()
+  pf_nfeats = pf$n_features
   if (length(unique(pf_nfeats)) == 1) {
     cat(sprintf("[WARNING]: All Pareto front points have the same number of features (%i), Dataset: %s, Omic: %s, Subsampling Iter: %i\n",
                 pf_nfeats[1L], dataset_id, omic_id, rsmp_id))
@@ -88,6 +89,10 @@ feature_selection = function(params, p) {
   } else {
     # Choose max features from empirical ePF for upper limit of the estimated PF
     # Use 20, if PF doesn't have points with more features than that
+    pf_pruned = pf[c(TRUE, diff(surv.cindex) > 0.0001)]
+
+    cat(sprintf("[CHECK]: Max #features in empirical PF: %i, Max #features in efs result: %i, Max #features in pruned PF (eps = 0.0001): %i", max(pf$n_features), max(efs$result$n_features), max(pf_pruned$n_features)))
+
     max_nfeats = max(max(pf_nfeats), 20)
     n_feats = efs$knee_points(type = "estimated", max_nfeatures = max_nfeats)$n_features
   }
