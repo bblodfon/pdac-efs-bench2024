@@ -82,12 +82,13 @@ feature_selection = function(params, p) {
   # SELECT FEATURES via EFS
   pf_nfeats = efs$pareto_front()$n_features
   if (length(unique(pf_nfeats)) == 1) {
-    cat(sprintf("[WARNING]: All Pareto front points have the same number of features (%i)\n",
-                pf_nfeats[1L]))
+    cat(sprintf("[WARNING]: All Pareto front points have the same number of features (%i),
+                Dataset: %s, #Omic: %s, #Subsampling Iter: %i\n", pf_nfeats[1L],
+                dataset_id, omic_id, rsmp_id))
     n_feats = pf_nfeats[1L]
   } else {
     # Choose max features from empirical ePF for upper limit of the estimated PF
-    # Use 20, if PF doesn't have points with more features
+    # Use 20, if PF doesn't have points with more features than that
     max_nfeats = max(max(pf_nfeats), 20)
     n_feats = efs$knee_points(type = "estimated", max_nfeatures = max_nfeats)$n_features
   }
