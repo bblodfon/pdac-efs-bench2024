@@ -26,6 +26,7 @@ suppressPackageStartupMessages({
   library(glmnet)
   library(checkmate)
   library(readr)
+  library(dplyr)
   library(tibble)
   library(future.apply)
   library(progressr)
@@ -72,7 +73,7 @@ feature_selection = function(params, p) {
   rsmp_id = params$rsmp_id
 
   #' Notify progress via `p = progressr::progressor()`
-  p(sprintf("Dataset: %s, #Rsmps: %i, #Iter: %i", group_name, n_rsmps, rsmp_id))
+  p(sprintf("Dataset: %s, #Omic: %s, #Subsampling Iter: %i", dataset_id, omic_id, rsmp_id))
 
   # Load ensemble feature selection (EFS) results
   file_name = file.path("bench", "efs", dataset_id, omic_id, paste0("efs_", rsmp_id, ".rds"))
@@ -85,8 +86,9 @@ feature_selection = function(params, p) {
                 pf_nfeats[1L]))
     n_feats = pf_nfeats[1L]
   } else {
-    # Choose max features from empirical PF for upper limit of the estimated PF
-    max_nfeats = max(pf_nfeats)
+    # Choose max features from empirical ePF for upper limit of the estimated PF
+    # Use 20, if PF doesn't have points with more features
+    max_nfeats = max(max(pf_nfeats), 20)
     n_feats = efs$knee_points(type = "estimated", max_nfeatures = max_nfeats)$n_features
   }
 
@@ -127,23 +129,25 @@ feature_selection = function(params, p) {
   )
 }
 
-# Run in parallel using future_lapply()
-row_seq = seq_len(nrow(grid_df))
+# execute function of feature selection
+execute_fs = function() {
+  row_seq = seq_len(nrow(grid_df))
 
-# Progress tracking
-p = progressr::progressor(along = row_seq)
+  # Progress tracking
+  p = progressr::progressor(along = row_seq)
 
-data_list = future_lapply(row_seq, function(i) {
-  feature_selection(grid_df[i, ], p)
-}, future.seed = TRUE)
+  data_list = future_lapply(row_seq, function(i) {
+    feature_selection(grid_df[i, ], p)
+  }, future.seed = TRUE)
 
-# Combine results into a single dataframe
-fs_data = dplyr::bind_rows(data_list)
+  # Combine results into a single dataframe
+  bind_rows(data_list)
+}
+
+fs_data = execute_fs()
 
 # Save results
 saveRDS(fs_data, file = "bench/fs.rds")
-
-cat("Feature selection complete. Results saved.\n")
 
 # LATE INTEGRATION ----
 # measure = msr("surv.cindex")
