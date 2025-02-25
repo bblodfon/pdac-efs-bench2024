@@ -119,8 +119,8 @@ feature_selection = function(params, p) {
 
   # if zero features, take the next lambda
   if (length(coxlasso_feats) == 0) {
-    cat("[WARNING]: CoxLasso results in 0 selected features, Dataset: %s, Omic: %s, Subsampling Iter: %i\n",
-        dataset_id, omic_id, rsmp_id)
+    cat(sprintf("[WARNING]: CoxLasso results in 0 selected features, Dataset: %s, Omic: %s, Subsampling Iter: %i\n",
+        dataset_id, omic_id, rsmp_id))
     for (lambda in coxlasso$model$model$lambda) {
       coxlasso_feats = coxlasso$selected_features(lambda = lambda)
       if (length(coxlasso_feats) > 0) break
