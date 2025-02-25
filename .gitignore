@@ -15,3 +15,4 @@ bench/efs/*
 test/*
 bench/fs/*
 efs/tree_efs.rds
+server_bench_data/
