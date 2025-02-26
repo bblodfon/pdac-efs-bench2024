@@ -39,7 +39,7 @@ handlers("progress")
 # load feature selection results
 fs = readRDS(file = "bench/fs.rds")
 # how many different feature selection methods?
-fs_methods = c("efs_all_feats", "coxlasso_nfeats")
+fs_methods = c("efs_all_feats", "coxlasso_feats")
 stopifnot(all(fs_methods %in% names(fs)))
 
 # Define datasets
@@ -79,7 +79,7 @@ mm_bench = function(params, p) {
 
   #' Notify progress via `p = progressr::progressor()`
   p(sprintf("Dataset: %s, FS-method: %s, Subsampling Iter: %i",
-            dataset_id, fs_method, rsmp_id))
+            dataset_id, fs_method_id, rsmp_id))
 
   # get all omics tasks for this dataset
   task_list = readRDS(file.path("data", dataset_id, "task_list.rds"))
