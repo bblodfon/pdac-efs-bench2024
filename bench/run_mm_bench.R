@@ -18,6 +18,7 @@ suppressPackageStartupMessages({
   library(mlr3fselect)
   library(mlr3extralearners)
   library(mlr3proba)
+  library(mlr3pipelines)
   library(fastVoteR)
   library(glmnet)
   library(checkmate)
