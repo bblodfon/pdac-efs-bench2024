@@ -14,5 +14,7 @@ bench/osipov2024/*
 bench/efs/*
 test/*
 bench/fs/*
+bench/log
 efs/tree_efs.rds
 server_bench_data/
+
