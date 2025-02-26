@@ -38,11 +38,13 @@ handlers("progress")
 
 # load feature selection results
 fs = readRDS(file = "bench/fs.rds")
+# how many different feature selection methods?
+fs_methods = c("efs_all_feats", "coxlasso_nfeats")
+stopifnot(all(fs_methods %in% names(fs)))
 
 # Define datasets
 dataset_ids = c("wissel2023", "osipov2024")
 
-# LATE INTEGRATION ----
 # Construct a parameter grid (all combinations of dataset_id, all omic_ids, rsmp_id)
 grid_list = lapply(dataset_ids, function(dataset_id) {
   dataset_path = file.path("data", dataset_id)
@@ -57,8 +59,12 @@ grid_list = lapply(dataset_ids, function(dataset_id) {
   subsampling = readRDS(file.path(dataset_path, "subsampling.rds"))
   rsmp_ids = seq(subsampling$iters)
 
-  expand.grid(dataset_id = dataset_id, omic_id = list(omic_ids), rsmp_id = rsmp_ids,
-              stringsAsFactors = FALSE)
+  expand.grid(
+    dataset_id = dataset_id,
+    fs_method = fs_methods,
+    rsmp_id = rsmp_ids,
+    stringsAsFactors = FALSE
+  )
 })
 
 grid_df = do.call(rbind, grid_list)
@@ -67,15 +73,79 @@ grid_df = do.call(rbind, grid_list)
 mm_bench = function(params, p) {
   set.seed(42)
   dataset_id = params$dataset_id
-  omic_id = params$omic_id
+  fs_method_id = params$fs_method
   rsmp_id = params$rsmp_id
-  print_params = list(dataset_id = dataset_id, omic_id = omic_id, rsmp_id = rsmp_id)
+  #print_params = list(dataset_id = dataset_id, fs_method_id = fs_method, rsmp_id = rsmp_id)
 
   #' Notify progress via `p = progressr::progressor()`
-  p(sprintf("Dataset: %s, Omic: %s, Subsampling Iter: %i", dataset_id, omic_id, rsmp_id))
+  p(sprintf("Dataset: %s, FS-method: %s, Subsampling Iter: %i",
+            dataset_id, fs_method, rsmp_id))
+
+  # get all omics tasks for this dataset
+  task_list = readRDS(file.path("data", dataset_id, "task_list.rds"))
+
+  # subset each omic task to the selected features
+  for (omic_id in names(task_list)) {
+    if (omic_id != "clinical") {
+      result = fs |>
+        filter(dataset_id == !!dataset_id,
+               omic_id == !!omic_id,
+               rsmp_id == !!rsmp_id
+        ) |> pull(fs_method_id)
+      selected_features = result[[1L]]
+      task_list[[omic_id]]$select(cols = selected_features)
+    }
+  }
+
+  # combine omics to a combined multi-omics dataset
+  all_data = mlr3misc::map_dtc(names(task_list), function(omic_id) {
+    task_list[[omic_id]]$data()
+  })
+
+  # remove auxiliary target columns
+  all_data = all_data[, !grepl("^time\\.|^status\\.", names(all_data)), with = FALSE]
 
   # make multi-omics task
-  task_list = readRDS(file.path("data", dataset_id, "task_list.rds"))
+  mm_task = as_task_surv(x = all_data, time = "time", event = "status")
+
+  # standardize data (mean = 0, sd = 1)
+  pos = po("scale")
+  mm_task = pos$train(list(mm_task))[[1L]]
+
+  # train/test split
+  subsampling = readRDS(file = file.path("data", dataset_id, "subsampling.rds"))
+  train_set = subsampling$train_set(rsmp_id)
+  test_set = subsampling$test_set(rsmp_id)
+
+  # train CoxLasso model
+  #' `standardize = FALSE` as data (train and test set) is already standardized
+  coxlasso = lrn("surv.cv_glmnet", id = "coxlasso", standardize = FALSE, alpha = 1,
+                 nfolds = 5, type.measure = "C", s = "lambda.min")
+  coxlasso$train(mm_task, row_ids = train_set)
+  coxlasso_feats = coxlasso$selected_features()
+
+  # predict with CoxLasso model
+  p = coxlasso$predict(mm_task, row_ids = test_set)
+
+  # measure performance via C-index
+  harrel_c = p$score(msr("surv.cindex"))
+  uno_c = p$score(msr("surv.cindex", weight_meth = "G2"),
+                  task = mm_task, train_set = train_set)
+  dcalib = p$score(msr("surv.dcalib", truncate = 16)) # see doc for truncate value
+  ibrier = p$score(msr("surv.graf", times = c(6, 12, 24), ERV = TRUE), # IBS
+                  task = mm_task, train_set = train_set)
+
+  # Return result as a tibble
+  tibble(
+    dataset_id = dataset_id,
+    fs_method_id = fs_method_id,
+    rsmp_id = rsmp_id,
+    model = "LI-coxlasso", # for now only this
+    harrel_c = harrel_c,
+    uno_c = uno_c,
+    dcalib = dcalib,
+    ibrier = ibrier
+  )
 }
 
 # execute function of benchmark
