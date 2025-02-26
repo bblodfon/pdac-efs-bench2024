@@ -141,6 +141,7 @@ mm_bench = function(params, p) {
     fs_method_id = fs_method_id,
     rsmp_id = rsmp_id,
     model = "LI-coxlasso", # for now only this
+    coxlasso_feats = list(coxlasso_feats),
     harrel_c = harrel_c,
     uno_c = uno_c,
     dcalib = dcalib,
@@ -163,9 +164,7 @@ execute_bench = function() {
   bind_rows(data_list)
 }
 
-bench_res = execute_bench()
+result = execute_bench()
 
 # Save results
-saveRDS(bench_res, file = "bench/bench_res.rds")
-
-measure = msr("surv.cindex")
+saveRDS(result, file = "bench/result.rds")
