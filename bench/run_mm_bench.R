@@ -31,6 +31,7 @@ suppressPackageStartupMessages({
   library(future.apply)
   library(progressr)
 })
+source("efs/helpers.R")
 
 # Set parallel execution
 plan("multicore", workers = 30)
@@ -71,6 +72,7 @@ feature_selection = function(params, p) {
   dataset_id = params$dataset_id
   omic_id = params$omic_id
   rsmp_id = params$rsmp_id
+  print_params = list(dataset_id = dataset_id, omic_id = omic_id, rsmp_id = rsmp_id)
 
   #' Notify progress via `p = progressr::progressor()`
   p(sprintf("Dataset: %s, Omic: %s, Subsampling Iter: %i", dataset_id, omic_id, rsmp_id))
@@ -79,32 +81,36 @@ feature_selection = function(params, p) {
   file_name = file.path("bench", "efs", dataset_id, omic_id, paste0("efs_", rsmp_id, ".rds"))
   efs = readRDS(file_name)
 
-  # SELECT FEATURES via EFS
-  pf = efs$pareto_front()
-  pf_nfeats = pf$n_features
-  if (length(unique(pf_nfeats)) == 1) {
-    cat(sprintf("[WARNING]: All Pareto front points have the same number of features (%i), Dataset: %s, Omic: %s, Subsampling Iter: %i\n",
-                pf_nfeats[1L], dataset_id, omic_id, rsmp_id))
-    n_feats = pf_nfeats[1L]
-  } else {
-    if (FALSE) {
-      # Small investigation
-      # Choose max features for upper limit of the estimated PF
-      epf = efs$pareto_front(type = "estimated", max_nfeatures = 100)
-      pf0001 = epf[c(TRUE, diff(surv.cindex) > 0.0001)] # more strict, higher upper limit
-      pf001 = epf[c(TRUE, diff(surv.cindex) > 0.001)] # less strict, lower upper limit
-      cat(sprintf("[CHECK]: %i,%i,%i,%i\n", max(efs$result$n_features), max(pf_nfeats), max(pf0001$n_features), max(pf001$n_features)))
-    }
-
-    max_nfeats = max(pf_nfeats)
-    n_feats = efs$knee_points(type = "estimated", max_nfeatures = max_nfeats)$n_features
-    # n_feats = efs$knee_points()$n_features # or use empirical Pareto front directly
-  }
+  # SELECT FEATURES via EFS (all models)
+  ## get number of features via the Pareto method
+  efs_nfeats = get_nfeats(efs, lrn_ids = NULL, type = "estimated",
+                          upper_bound = "max_efs", print_params = print_params)
 
   efs_feats = efs$feature_ranking(
     method = "sav",
     use_weights = TRUE,
-    committee_size = n_feats
+    committee_size = efs_nfeats
+  )[["feature"]]
+
+  # SELECT FEATURES via EFS (only CoxLasso model)
+  efs_coxlasso_nfeats = get_nfeats(efs, lrn_ids = "coxlasso", type = "estimated",
+                                   upper_bound = "max_efs", print_params = print_params)
+
+  efs_coxlasso_feats = efs$feature_ranking(
+    method = "sav",
+    use_weights = TRUE,
+    committee_size = efs_coxlasso_nfeats
+  )[["feature"]]
+
+  # SELECT FEATURES via EFS (only RSF models)
+  rsf_ids = c("rsf_logrank.fselector", "rsf_maxstat.fselector", "aorsf.fselector")
+  efs_rsf_nfeats = get_nfeats(efs, lrn_ids = rsf_ids, type = "estimated",
+                              upper_bound = "max_efs", print_params = print_params)
+
+  efs_rsf_feats = efs$feature_ranking(
+    method = "sav",
+    use_weights = TRUE,
+    committee_size = efs_rsf_nfeats
   )[["feature"]]
 
   # SELECT FEATURES via COXLASSO
@@ -132,8 +138,16 @@ feature_selection = function(params, p) {
     dataset_id = dataset_id,
     omic_id = omic_id,
     rsmp_id = rsmp_id,
-    efs_n_feats = length(efs_feats),
-    efs_feats = list(efs_feats),
+    # efs: all models (9)
+    efs_all_feats = list(efs_feats),
+    efs_all_nfeats = efs_nfeats,
+    # efs: just coxlasso (1)
+    efs_coxlasso_feats = list(efs_coxlasso_feats),
+    efs_coxlasso_nfeats = efs_coxlasso_nfeats,
+    # efs: RSF (3)
+    efs_rsf_feats = list(efs_rsf_feats),
+    efs_rsf_nfeats = efs_rsf_nfeats,
+    # Simple coxlasso for feature selection
     coxlasso_n_feats = length(coxlasso_feats),
     coxlasso_feats = list(coxlasso_feats)
   )
