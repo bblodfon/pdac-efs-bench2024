@@ -124,11 +124,17 @@ get_nfeats = function(efs, lrn_ids = NULL, type = "estimated", upper_bound = "ma
 
   # Optional diagnostic check for upper limit of estimated Pareto front
   if (FALSE) {
+    nfeat_candidates = efs_copy |>
+      select(learner_id, n_features) |>
+      group_by(learner_id) |>
+      summarize(max_nfeats = max(n_features)) |>
+      arrange(desc(max_nfeats)) |>
+      pull()
     pf_estimated = efs_copy$pareto_front(type = "estimated", max_nfeatures = 100)
     pf0001 = pf_estimated[c(TRUE, diff(surv.cindex) > 0.0001)]
     pf001 = pf_estimated[c(TRUE, diff(surv.cindex) > 0.001)]
-    cat(sprintf("[CHECK]: %i,%i,%i,%i\n",
-                max(efs_copy$result$n_features), max(pf_nfeats),
+    cat(sprintf("[CHECK]: %i,%i,%i,%i,%i\n",
+                max(efs_copy$result$n_features), nfeat_candidates[2], max(pf_nfeats),
                 max(pf0001$n_features), max(pf001$n_features)))
   }
 
