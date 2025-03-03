@@ -99,7 +99,7 @@ grid_df = do.call(rbind, grid_list)
 # remove un-needed configurations
 grid_df = grid_df |>
   # Osipov dataset doesn't have GEX data in our benchmark
-  filter(!(model_data_config == "coxlasso-clinical+gex" & dataset_id == "osipov2024")) |>
+  filter(!(endsWith(model_data_config, "+gex") & dataset_id == "osipov2024")) |>
   # {cox|rsf, clinical} and {coxlasso|rsf, clinical+gex} don't depend on the fs method
   group_by(rsmp_id, model_data_config) |>
   mutate(fs_method_id = ifelse(
