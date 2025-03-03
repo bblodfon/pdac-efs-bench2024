@@ -1,11 +1,18 @@
-#' Multi-omics benchmark on PDAC datasets
+#' Multi-omics (MM) benchmark on PDAC datasets
 #'
 #' This script runs a multi-omics benchmark on the two PDAC datasets:
-#' 1) First the feature selection per omic and per subsampling iteration
-#' has been performed in the `run_fs.R` script. We just load the results here.
-#' 2) We perform *late integration*: i.e. for each subsampling iteration, we combine
-#' the omic-specific features to make multiomics datasets, for which we then
-#' fit to a CoxLasso model on the train set and predict using the test set.
+#'
+#' 1) **Feature Selection:**
+#'    - Feature selection per omic and per subsampling iteration has already
+#'    been performed in `run_fs.R`.
+#'    - The results are loaded here.
+#'
+#' 2) **Late Integration:**
+#'    - For each subsampling iteration, per-omic-selected features are combined
+#'    to form multi-omics datasets.
+#'    - These datasets are then used to train a model on the training set and
+#'    predict on the test set.
+#'    - Several model options are available (Coxlasso, RSF, Cox).
 #'
 #' Execute: `Rscript bench/run_mm_bench.R` (from project root)
 
@@ -39,9 +46,27 @@ handlers("progress")
 
 # load feature selection results
 fs = readRDS(file = "bench/fs.rds")
-# how many different feature selection methods?
-fs_methods = c("efs_all_feats", "coxlasso_feats")
-stopifnot(all(fs_methods %in% names(fs)))
+# define/get the different feature selection methods
+#fs_method_ids = c("efs_all_feats", "coxlasso_feats")
+fs_method_ids = colnames(fs)[endsWith(colnames(fs), "_feats")]
+
+# Define the models we will use for benchmarking and the data these will be applied on
+# This is after feature selection per omic is done and late-integration of features
+# is performed
+model_data_configs = c(
+  # Model: CoxLasso, Data: Clinical + MM
+  "coxlasso-all",
+  # Model: RSF, Data: Clinical + MM
+  "rsf-all",
+  # Model: CoxLasso, Data: Clinical + GEX only (Reference) (for Wissel2023/TCGA data)
+  "coxlasso-clinical_gex",
+  # Model: Cox, Data: Clinical (Reference)
+  "cox-clinical"
+
+  # TO TEST
+  # Model: CoxLasso, Data: Clinical (mandatory covariates) + MM dataset
+  # Model: CoxLasso|RSF, Data: Clinical + MM (remove Mutation + CNV)
+)
 
 # Define datasets
 dataset_ids = c("wissel2023", "osipov2024")
@@ -62,7 +87,8 @@ grid_list = lapply(dataset_ids, function(dataset_id) {
 
   expand.grid(
     dataset_id = dataset_id,
-    fs_method = fs_methods,
+    fs_method_id = fs_method_ids,
+    model_data_config = model_data_configs,
     rsmp_id = rsmp_ids,
     stringsAsFactors = FALSE
   )
@@ -74,76 +100,125 @@ grid_df = do.call(rbind, grid_list)
 mm_bench = function(params, p) {
   set.seed(42)
   dataset_id = params$dataset_id
-  fs_method_id = params$fs_method
+  fs_method_id = params$fs_method_id
+  model_data_config = params$model_data_config
+  config = strsplit(model_data_config, split = "-")[[1L]]
+  model = config[1]
+  data = config[2]
   rsmp_id = params$rsmp_id
-  #print_params = list(dataset_id = dataset_id, fs_method_id = fs_method, rsmp_id = rsmp_id)
 
   #' Notify progress via `p = progressr::progressor()`
-  p(sprintf("Dataset: %s, FS-method: %s, Subsampling Iter: %i",
-            dataset_id, fs_method_id, rsmp_id))
+  p(sprintf("Dataset: %s, FS-method: %s, Model: %s, Data: %s, Subsampling Iter: %i",
+            dataset_id, fs_method_id, model, data, rsmp_id))
 
-  # get all omics tasks for this dataset
+  # get clinical + ALL omics tasks for this dataset
   task_list = readRDS(file.path("data", dataset_id, "task_list.rds"))
 
-  # subset each omic task to the selected features
-  for (omic_id in names(task_list)) {
-    if (omic_id != "clinical") {
+  # CREATE TASK
+  if (data == "clinical") {
+    # just take the clinical data, no standardization
+    task = task_list$clinical
+  } else if (data == "clinical_gex") {
+    if (dataset_id == "osipov2024") {
+      # Osipov dataset doesn't include GEX in our benchmarking
+      return(tibble())
+    }
+
+    # use the selected GEX features and combine with the clinical ones
+    result = fs |>
+      filter(dataset_id == !!dataset_id,
+             omic_id == "gex",
+             rsmp_id == !!rsmp_id
+      ) |> pull(fs_method_id)
+    selected_gex_features = result[[1L]]
+    gex_data = task_list[["gex"]]$data(cols = selected_gex_features)
+    clinical_data = task_list$clinical$data() # time, status included
+    all_data = cbind(clinical_data, gex_data)
+
+    # make clinical + GEX task
+    task = as_task_surv(x = all_data, time = "time", event = "status")
+
+    # standardize data (mean = 0, sd = 1)
+    pos = po("scale")
+    task = pos$train(list(task))[[1L]]
+  } else { # "all"
+    # combine all omics to a combined multi-omics dataset
+    all_data = mlr3misc::map_dtc(names(task_list), function(omic_id) {
+      if (omic_id == "clinical") {
+        # no fs for clinical features
+        return(task_list[[omic_id]]$data())
+      }
+
+      # fs for omic features
       result = fs |>
         filter(dataset_id == !!dataset_id,
                omic_id == !!omic_id,
                rsmp_id == !!rsmp_id
         ) |> pull(fs_method_id)
       selected_features = result[[1L]]
-      task_list[[omic_id]]$select(cols = selected_features)
-    }
+      task_list[[omic_id]]$data(cols = selected_features)
+    })
+
+    # make multi-omics task
+    task = as_task_surv(x = all_data, time = "time", event = "status")
+
+    # standardize data (mean = 0, sd = 1)
+    pos = po("scale")
+    task = pos$train(list(task))[[1L]]
   }
 
-  # combine omics to a combined multi-omics dataset
-  all_data = mlr3misc::map_dtc(names(task_list), function(omic_id) {
-    task_list[[omic_id]]$data()
-  })
-
-  # remove auxiliary target columns
-  all_data = all_data[, !grepl("^time\\.|^status\\.", names(all_data)), with = FALSE]
-
-  # make multi-omics task
-  mm_task = as_task_surv(x = all_data, time = "time", event = "status")
-
-  # standardize data (mean = 0, sd = 1)
-  pos = po("scale")
-  mm_task = pos$train(list(mm_task))[[1L]]
-
-  # train/test split
+  # GET RESAMPLING: train/test split
   subsampling = readRDS(file = file.path("data", dataset_id, "subsampling.rds"))
   train_set = subsampling$train_set(rsmp_id)
   test_set = subsampling$test_set(rsmp_id)
 
-  # train CoxLasso model
-  #' `standardize = FALSE` as data (train and test set) is already standardized
-  coxlasso = lrn("surv.cv_glmnet", id = "coxlasso", standardize = FALSE, alpha = 1,
-                 nfolds = 5, type.measure = "C", s = "lambda.min")
-  coxlasso$train(mm_task, row_ids = train_set)
-  coxlasso_feats = coxlasso$selected_features()
+  # CREATE MODEL
+  if (model == "coxlasso") {
+    # CoxLasso
+    #' `standardize = FALSE` as data (train and test set) is already standardized
+    learner = lrn("surv.cv_glmnet", id = model, standardize = FALSE, alpha = 1,
+                  nfolds = 5, type.measure = "C", s = "lambda.min")
+    # from Wissel2023:
+    # learner = lrn("surv.cv_glmnet", id = model, standardize = FALSE, alpha = 1,
+    #               nfolds = 5, type.measure = "deviance", grouped = TRUE, s = "lambda.min")
+  } else if (model == "rsf") {
+    # Random Survival Forest
+    learner = lrn("surv.ranger", id = model, importance = "none",
+                  num.trees = 2000, splitrule = "logrank")
+  } else {
+    # Simple Cox PH
+    if (data != "clinical") {
+      mlr3misc::stopf("Clinical data is only used but model is %s", model)
+    }
+    learner = lrn("surv.coxph")
+  }
 
-  # predict with CoxLasso model
-  p = coxlasso$predict(mm_task, row_ids = test_set)
+  # train model on train set
+  learner$train(task, row_ids = train_set)
+
+  # predict with model on test set
+  p = learner$predict(task, row_ids = test_set)
 
   # measure performance via C-index
-  harrel_c = p$score(msr("surv.cindex"))
+  harrell_c = p$score(msr("surv.cindex"))
   uno_c = p$score(msr("surv.cindex", weight_meth = "G2"),
-                  task = mm_task, train_set = train_set)
+                  task = task, train_set = train_set)
+  # investigate other measures
   dcalib = p$score(msr("surv.dcalib", truncate = 16)) # see doc for truncate value
   ibrier = p$score(msr("surv.graf", times = c(6, 12, 24), ERV = TRUE), # IBS
-                  task = mm_task, train_set = train_set)
+                   task = task, train_set = train_set)
 
   # Return result as a tibble
   tibble(
     dataset_id = dataset_id,
     fs_method_id = fs_method_id,
     rsmp_id = rsmp_id,
-    model = "LI-coxlasso", # for now only this
-    coxlasso_feats = list(coxlasso_feats),
-    harrel_c = harrel_c,
+    model_data_config = model_data_config,
+    # include the train task here?
+    # task = task$filter(rows = train_set),
+    task_nfeats = task$n_features, # how many multi-omics features were used
+    task_feats = list(task$feature_names),
+    harrell_c = harrell_c,
     uno_c = uno_c,
     dcalib = dcalib,
     ibrier = ibrier
