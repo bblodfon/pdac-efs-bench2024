@@ -96,6 +96,16 @@ grid_list = lapply(dataset_ids, function(dataset_id) {
 
 grid_df = do.call(rbind, grid_list)
 
+# remove unneeded configurations
+grid_df = grid_df |>
+  # Osipov dataset doesn't have GEX data in our benchmark
+  filter(!(model_data_config == "coxlasso-clinical_gex" & dataset_id == "osipov2024")) |>
+  # cox model + clinical data doesn't depend on the fs method
+  group_by(rsmp_id, model_data_config) |>
+  mutate(fs_method_id = ifelse(model_data_config == "cox-clinical", NA, fs_method_id)) |>
+  distinct(dataset_id, fs_method_id, model_data_config, rsmp_id, .keep_all = TRUE) |>
+  ungroup()
+
 # Parallelized function for multi-omics benchmark
 mm_bench = function(params, p) {
   set.seed(42)
@@ -119,11 +129,6 @@ mm_bench = function(params, p) {
     # just take the clinical data, no standardization
     task = task_list$clinical
   } else if (data == "clinical_gex") {
-    if (dataset_id == "osipov2024") {
-      # Osipov dataset doesn't include GEX in our benchmarking
-      return(tibble())
-    }
-
     # use the selected GEX features and combine with the clinical ones
     result = fs |>
       filter(dataset_id == !!dataset_id,
@@ -187,9 +192,6 @@ mm_bench = function(params, p) {
                   num.trees = 2000, splitrule = "logrank")
   } else {
     # Simple Cox PH
-    if (data != "clinical") {
-      mlr3misc::stopf("Clinical data is only used but model is %s", model)
-    }
     learner = lrn("surv.coxph")
   }
 
