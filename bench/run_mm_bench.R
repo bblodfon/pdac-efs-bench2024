@@ -26,6 +26,7 @@ suppressPackageStartupMessages({
   library(mlr3extralearners)
   library(mlr3proba)
   library(mlr3pipelines)
+  library(mlr3misc)
   library(fastVoteR)
   library(glmnet)
   library(checkmate)
@@ -54,14 +55,18 @@ fs_method_ids = colnames(fs)[endsWith(colnames(fs), "_feats")]
 # This is after feature selection per omic is done and late-integration of features
 # is performed
 model_data_configs = c(
-  # Model: CoxLasso, Data: Clinical + MM
+  # Model: CoxLasso, Data: ALL => Clinical + OMICS
   "coxlasso-all",
-  # Model: RSF, Data: Clinical + MM
+  # Model: RSF, Data: ALL => Clinical + OMICS
   "rsf-all",
-  # Model: CoxLasso, Data: Clinical + GEX only (Reference) (for Wissel2023/TCGA data)
-  "coxlasso-clinical_gex",
-  # Model: Cox, Data: Clinical (Reference)
-  "cox-clinical"
+  # Model: CoxLasso, Data: Clinical + GEX only (Reference for Wissel2023/TCGA data)
+  "coxlasso-clinical+gex",
+  # Model: Cox, Data: Clinical (Reference, for both datasets)
+  "cox-clinical",
+  # Model: RSF, Data: Clinical (Reference, for both datasets)
+  "rsf-clinical",
+  # Model: RSF, Data: Clinical + GEX only (Reference for Wissel2023/TCGA data)
+  "rsf-clinical+gex"
 
   # TO TEST
   # Model: CoxLasso, Data: Clinical (mandatory covariates) + MM dataset
@@ -71,15 +76,10 @@ model_data_configs = c(
 # Define datasets
 dataset_ids = c("wissel2023", "osipov2024")
 
-# Construct a parameter grid (all combinations of dataset_id, all omic_ids, rsmp_id)
+# Construct a parameter grid
 grid_list = lapply(dataset_ids, function(dataset_id) {
   dataset_path = file.path("data", dataset_id)
   assert_directory(dataset_path)
-
-  # Load omic task IDs
-  omic_ids = readr::read_csv(file.path(dataset_path, "omic_ids.csv"),
-                             col_names = FALSE, show_col_types = FALSE)[[1L]]
-  omic_ids = c("clinical", omic_ids)
 
   # Load subsampling iterations
   subsampling = readRDS(file.path(dataset_path, "subsampling.rds"))
@@ -96,13 +96,18 @@ grid_list = lapply(dataset_ids, function(dataset_id) {
 
 grid_df = do.call(rbind, grid_list)
 
-# remove unneeded configurations
+# remove un-needed configurations
 grid_df = grid_df |>
   # Osipov dataset doesn't have GEX data in our benchmark
-  filter(!(model_data_config == "coxlasso-clinical_gex" & dataset_id == "osipov2024")) |>
-  # cox model + clinical data doesn't depend on the fs method
+  filter(!(model_data_config == "coxlasso-clinical+gex" & dataset_id == "osipov2024")) |>
+  # {cox|rsf, clinical} and {coxlasso|rsf, clinical+gex} don't depend on the fs method
   group_by(rsmp_id, model_data_config) |>
-  mutate(fs_method_id = ifelse(model_data_config == "cox-clinical", NA, fs_method_id)) |>
+  mutate(fs_method_id = ifelse(
+    model_data_config == "cox-clinical" | model_data_config == "coxlasso-clinical+gex" |
+      model_data_config == "rsf-clinical" | model_data_config == "rsf-clinical+gex",
+    NA,
+    fs_method_id
+  )) |>
   distinct(dataset_id, fs_method_id, model_data_config, rsmp_id, .keep_all = TRUE) |>
   ungroup()
 
@@ -128,27 +133,36 @@ mm_bench = function(params, p) {
   if (data == "clinical") {
     # just take the clinical data, no standardization
     task = task_list$clinical
-  } else if (data == "clinical_gex") {
-    # use the selected GEX features and combine with the clinical ones
-    result = fs |>
-      filter(dataset_id == !!dataset_id,
-             omic_id == "gex",
-             rsmp_id == !!rsmp_id
-      ) |> pull(fs_method_id)
-    selected_gex_features = result[[1L]]
-    gex_data = task_list[["gex"]]$data(cols = selected_gex_features)
+  } else if (data == "clinical+gex") {
+    use_fs = FALSE
+    gex_features = if (use_fs) {
+      # CoxLasso selected features for GEX data
+      result = fs |>
+        filter(dataset_id == !!dataset_id,
+               omic_id == "gex",
+               rsmp_id == !!rsmp_id
+        ) |> pull(coxlasso_feats)
+      result[[1L]]
+    } else {
+      # no feature selection for GEX data
+      task_list[["gex"]]$feature_names
+    }
+
+    gex_data = task_list[["gex"]]$data(cols = gex_features)
     clinical_data = task_list$clinical$data() # time, status included
+
+    # combine clinical + gex data
     all_data = cbind(clinical_data, gex_data)
 
-    # make clinical + GEX task
+    # make clinical + gex task
     task = as_task_surv(x = all_data, time = "time", event = "status")
 
     # standardize data (mean = 0, sd = 1)
     pos = po("scale")
     task = pos$train(list(task))[[1L]]
-  } else { # "all"
+  } else {
     # combine all omics to a combined multi-omics dataset
-    all_data = mlr3misc::map_dtc(names(task_list), function(omic_id) {
+    all_data = map_dtc(names(task_list), function(omic_id) {
       if (omic_id == "clinical") {
         # no fs for clinical features
         return(task_list[[omic_id]]$data())
@@ -181,18 +195,18 @@ mm_bench = function(params, p) {
   if (model == "coxlasso") {
     # CoxLasso
     #' `standardize = FALSE` as data (train and test set) is already standardized
+    # same config as in Wissel et al. 2023
     learner = lrn("surv.cv_glmnet", id = model, standardize = FALSE, alpha = 1,
-                  nfolds = 5, type.measure = "C", s = "lambda.min")
-    # from Wissel2023:
-    # learner = lrn("surv.cv_glmnet", id = model, standardize = FALSE, alpha = 1,
-    #               nfolds = 5, type.measure = "deviance", grouped = TRUE, s = "lambda.min")
+                  nfolds = 5, type.measure = "deviance", grouped = TRUE, s = "lambda.min")
   } else if (model == "rsf") {
     # Random Survival Forest
     learner = lrn("surv.ranger", id = model, importance = "none",
                   num.trees = 2000, splitrule = "logrank")
-  } else {
+  } else if (model == "cox") {
     # Simple Cox PH
     learner = lrn("surv.coxph")
+  } else {
+    stopf("Model %s not implemented in this benchmark", model)
   }
 
   # train model on train set
