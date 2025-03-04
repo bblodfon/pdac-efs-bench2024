@@ -132,6 +132,7 @@ fs_long |>
 # BENCHMARK RESULTS
 result = readRDS(file = "bench/result.rds")
 result = readRDS(file = "bench/result_gexfs.rds")
+result = readRDS(file = "bench/result_briers.rds")
 # sort(unlist(mlr3misc::map(result$coxlasso_feats, length))) # no zeros ok
 
 # Convert data to long format for ggplot
@@ -157,7 +158,7 @@ result_long = result |>
     model == "rsf-all" ~ "RSF (ALL)",
     TRUE ~ model_data_config  # Keep other values unchanged
   )) |>
-  pivot_longer(cols = c(harrell_c, uno_c, dcalib, ibrier),
+  pivot_longer(cols = c(harrell_c, uno_c, brier_t12, brier_t24, brier_tmax24),
                names_to = "measure", values_to = "value")
 
 # Multi-Omics FS Sparsity ----
@@ -232,7 +233,8 @@ result_long |>
 
 # IBS ----
 result_long |>
-  filter(measure == "ibrier") |>
+  filter(grepl("brier", measure)) |>
+  #filter(measure == "brier_t12") |> # `brier_t24`, `brier_tmax24`
   ggplot(aes(x = fs_method_id, y = value, fill = model)) +
   geom_boxplot(alpha = 0.7, outlier.shape = NA) +
   geom_jitter(aes(color = model), show.legend = FALSE,
@@ -243,12 +245,24 @@ result_long |>
   geom_hline(yintercept = 0, color = "red", linetype = "dashed", linewidth = 0.8) +
   theme_minimal() +
   # `measure ~ dataset_id` if more measures
-  facet_grid(. ~ dataset_id) +
+  facet_grid(
+    measure ~ dataset_id,
+    #scales = "free_y",
+    labeller = as_labeller(
+      c(brier_t12 = "t = 1 year",
+        brier_t24 = "t = 2 years",
+        brier_tmax24 = "Up to t = 2 years",
+        osipov2024 = "Osipov et. al (2024)",
+        wissel2023 = "Wissel et. al (2023)"
+      )
+    ),
+  ) +
   labs(
     x = "Feature Selection Method",
-    y = "IBS ERV (3 time points)",
+    y = "IBS ERV",
     fill = "Integration Model (Data)"
   ) +
+  ylim(c(-1, 0.5)) +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1),
     legend.position = "top"
