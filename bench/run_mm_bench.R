@@ -164,7 +164,7 @@ mm_bench = function(params, p) {
     # combine all omics to a combined multi-omics dataset
     all_data = map_dtc(names(task_list), function(omic_id) {
       # investigate: remove mutation omic
-      if (omic_id == "mutation") {
+      if (TRUE && omic_id == "mutation") {
         return(data.table())
       }
 
@@ -225,14 +225,12 @@ mm_bench = function(params, p) {
   uno_c = p$score(msr("surv.cindex", weight_meth = "G2"),
                   task = task, train_set = train_set)
   # investigate IBS at different time points and integrated
-  ibrier = p$score(msr("surv.graf", times = c(6, 12, 24), ERV = TRUE), # IBS(3 time points)
-                   task = task, train_set = train_set)
-  brier_at6 = p$score(msr("surv.graf", times = 6, integrated = FALSE, ERV = TRUE), # BS(t = 6 months)
-                   task = task, train_set = train_set)
-  brier_tmax_12 = p$score(msr("surv.graf", t_max = 12, ERV = TRUE), # IBS(t_max = 12 months)
-                   task = task, train_set = train_set)
-  brier_tmax_24 = p$score(msr("surv.graf", t_max = 24, ERV = TRUE), # IBS(t_max = 12 months)
-                    task = task, train_set = train_set)
+  brier_t12 = p$score(msr("surv.graf", times = 12, integrated = FALSE, ERV = TRUE), # BS(t = 12 months)
+                      task = task, train_set = train_set)
+  brier_t24 = p$score(msr("surv.graf", times = 24, ERV = TRUE), # IBS(t = 24 months)
+                      task = task, train_set = train_set)
+  brier_tmax24 = p$score(msr("surv.graf", t_max = 24, ERV = TRUE), # IBS(t_max = 24 months)
+                        task = task, train_set = train_set)
 
   # Return result as a tibble
   tibble(
@@ -246,10 +244,9 @@ mm_bench = function(params, p) {
     task_feats = list(task$feature_names),
     harrell_c = harrell_c,
     uno_c = uno_c,
-    ibrier = ibrier,
-    brier_at6 = brier_at6,
-    brier_tmax_12 = brier_tmax_12,
-    brier_tmax_24 = brier_tmax_24
+    brier_t12 = brier_t12,
+    brier_t24 = brier_t24,
+    brier_tmax24 = brier_tmax24
   )
 }
 
