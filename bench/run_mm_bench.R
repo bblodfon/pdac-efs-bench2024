@@ -164,7 +164,7 @@ mm_bench = function(params, p) {
     # combine all omics to a combined multi-omics dataset
     all_data = map_dtc(names(task_list), function(omic_id) {
       # investigate: remove mutation omic
-      if (omic_ic == "mutation") {
+      if (omic_id == "mutation") {
         return(data.table())
       }
 
