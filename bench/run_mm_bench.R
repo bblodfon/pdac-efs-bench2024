@@ -241,8 +241,11 @@ mm_bench = function(params, p) {
     task_feats = list(task$feature_names),
     harrell_c = harrell_c,
     uno_c = uno_c,
-    dcalib = dcalib,
-    ibrier = ibrier
+    ibrier = ibrier,
+    ibrier = ibrier,
+    brier_at6 = brier_at6,
+    brier_tmax_12 = brier_tmax_12,
+    brier_tmax_24 = brier_tmax_24
   )
 }
 
