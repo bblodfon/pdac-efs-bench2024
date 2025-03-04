@@ -219,10 +219,15 @@ mm_bench = function(params, p) {
   harrell_c = p$score(msr("surv.cindex"))
   uno_c = p$score(msr("surv.cindex", weight_meth = "G2"),
                   task = task, train_set = train_set)
-  # investigate other measures
-  dcalib = p$score(msr("surv.dcalib", truncate = 16)) # see doc for truncate value
-  ibrier = p$score(msr("surv.graf", times = c(6, 12, 24), ERV = TRUE), # IBS
+  # investigate IBS at different time points and integrated
+  ibrier = p$score(msr("surv.graf", times = c(6, 12, 24), ERV = TRUE), # IBS(3 time points)
                    task = task, train_set = train_set)
+  brier_at6 = p$score(msr("surv.graf", times = 6, integrated = FALSE, ERV = TRUE), # BS(t = 6 months)
+                   task = task, train_set = train_set)
+  brier_tmax_12 = p$score(msr("surv.graf", t_max = 12, ERV = TRUE), # IBS(t_max = 12 months)
+                   task = task, train_set = train_set)
+  brier_tmax_24 = p$score(msr("surv.graf", t_max = 24, ERV = TRUE), # IBS(t_max = 12 months)
+                    task = task, train_set = train_set)
 
   # Return result as a tibble
   tibble(
