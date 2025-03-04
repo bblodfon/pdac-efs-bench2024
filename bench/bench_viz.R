@@ -108,7 +108,6 @@ fs_long |>
 # BENCHMARK RESULTS ----
 result = readRDS(file = "bench/result.rds") # all omics
 result = readRDS(file = "bench/result_no_mut.rds")
-# sort(unlist(mlr3misc::map(result$coxlasso_feats, length))) # no zeros ok
 
 # Convert data to long format for ggplot
 result_long = result |>
