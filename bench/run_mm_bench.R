@@ -134,7 +134,7 @@ mm_bench = function(params, p) {
     # just take the clinical data, no standardization
     task = task_list$clinical
   } else if (data == "clinical+gex") {
-    use_fs = FALSE
+    use_fs = TRUE
     gex_features = if (use_fs) {
       # CoxLasso selected features for GEX data
       result = fs |>
