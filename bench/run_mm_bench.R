@@ -163,6 +163,11 @@ mm_bench = function(params, p) {
   } else {
     # combine all omics to a combined multi-omics dataset
     all_data = map_dtc(names(task_list), function(omic_id) {
+      # investigate: remove mutation omic
+      if (omic_ic == "mutation") {
+        return(data.table())
+      }
+
       if (omic_id == "clinical") {
         # no fs for clinical features
         return(task_list[[omic_id]]$data())
@@ -241,7 +246,6 @@ mm_bench = function(params, p) {
     task_feats = list(task$feature_names),
     harrell_c = harrell_c,
     uno_c = uno_c,
-    ibrier = ibrier,
     ibrier = ibrier,
     brier_at6 = brier_at6,
     brier_tmax_12 = brier_tmax_12,
