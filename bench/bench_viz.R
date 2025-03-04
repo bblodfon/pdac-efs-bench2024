@@ -3,7 +3,7 @@ library(dplyr)
 library(tidyr)
 library(forcats)
 
-# FEATURE SELECTION RESULTS (PER OMIC)
+# FEATURE SELECTION RESULTS (PER OMIC) ----
 fs = readRDS(file = "bench/fs.rds")
 
 # hue_colors = scale_color_hue()$palette(n = 5)
@@ -27,24 +27,6 @@ set1_colors = c(
   "#FFFF33"
 )
 
-# Density plots of #features (investigation plot)
-# fs |>
-#   select(efs_all_nfeats, efs_coxlasso_nfeats, efs_rsf_nfeats, coxlasso_nfeats) |>
-#   pivot_longer(cols = everything(), names_to = "Method", values_to = "Features") |>
-#   filter(Features <= 50) |>
-#   ggplot(aes(x = Features, fill = Method, color = Method)) +
-#     geom_histogram(aes(y = after_stat(density)), bins = 50, alpha = 0.3,
-#                    position = "identity") +
-#     #geom_density(alpha = 0.5, linewidth = 1) +
-#     theme_minimal() +
-#     labs(title = "Feature Selection Distributions (<= 50 features)",
-#          x = "Number of Features",
-#          y = "Density") +
-#     scale_fill_manual(values = c("#E69F00", "#56B4E9", "#009E73", "#CC79A7")) +
-#     scale_color_manual(values = c("#E69F00", "#56B4E9", "#009E73", "#CC79A7")) +
-#     theme(legend.title = element_blank(),
-#           legend.position = "top")
-
 # Per-Omic Sparsity ----
 custom_colors = c(
   "EFS (9 models)" = set1_colors[1],
@@ -52,12 +34,6 @@ custom_colors = c(
   "EFS (3 RSFs)" = set1_colors[3],
   "CoxLasso" = set1_colors[4]
 )
-# custom_colors = c(
-#   "efs_all_nfeats" = hue_colors[1],
-#   "efs_coxlasso_nfeats" = hue_colors[2],
-#   "efs_rsf_nfeats" = hue_colors[3],
-#   "coxlasso_nfeats" = hue_colors[4]
-# )
 
 fs_long = fs |>
   select(dataset_id, omic_id, ends_with("nfeats")) |>
@@ -129,10 +105,9 @@ fs_long |>
     axis.text.x = element_text(angle = 45, hjust = 1)
   )
 
-# BENCHMARK RESULTS
-result = readRDS(file = "bench/result.rds")
-result = readRDS(file = "bench/result_gexfs.rds")
-result = readRDS(file = "bench/result_briers.rds")
+# BENCHMARK RESULTS ----
+result = readRDS(file = "bench/result.rds") # all omics
+result = readRDS(file = "bench/result_no_mut.rds")
 # sort(unlist(mlr3misc::map(result$coxlasso_feats, length))) # no zeros ok
 
 # Convert data to long format for ggplot
