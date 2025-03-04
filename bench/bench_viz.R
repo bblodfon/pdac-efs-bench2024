@@ -3,58 +3,88 @@ library(dplyr)
 library(tidyr)
 library(forcats)
 
-# feature selection data
+# FEATURE SELECTION RESULTS (PER OMIC)
 fs = readRDS(file = "bench/fs.rds")
 
-hue_colors = scale_color_hue()$palette(n = 4)
-
-# Density plots of #features ----
-fs |>
-  select(efs_all_nfeats, efs_coxlasso_nfeats, efs_rsf_nfeats, coxlasso_nfeats) |>
-  pivot_longer(cols = everything(), names_to = "Method", values_to = "Features") |>
-  filter(Features <= 50) |>
-  ggplot(aes(x = Features, fill = Method, color = Method)) +
-    geom_histogram(aes(y = after_stat(density)), bins = 50, alpha = 0.3,
-                   position = "identity") +
-    #geom_density(alpha = 0.5, linewidth = 1) +
-    theme_minimal() +
-    labs(title = "Feature Selection Distributions (<= 50 features)",
-         x = "Number of Features",
-         y = "Density") +
-    scale_fill_manual(values = c("#E69F00", "#56B4E9", "#009E73", "#CC79A7")) +
-    scale_color_manual(values = c("#E69F00", "#56B4E9", "#009E73", "#CC79A7")) +
-    theme(legend.title = element_blank(),
-          legend.position = "top")
-
-# Sparsity Boxplots ----
-custom_colors = c(
-  "efs_all_nfeats" = hue_colors[1],
-  "efs_coxlasso_nfeats" = hue_colors[2],
-  "efs_rsf_nfeats" = hue_colors[3],
-  "coxlasso_nfeats" = hue_colors[4]
+# hue_colors = scale_color_hue()$palette(n = 5)
+# more manual hue colors:
+hue_colors = c(
+  "#F8766D",
+  "#A3A500",
+  "#00BB4E",
+  "#E76BF3",
+  "#35A2FF",
+  "#9590FF",
 )
 
-long_fs = fs |>
+# RColorBrewer::brewer.pal(n = 6, name = "Set1")
+set1_colors = c(
+  "#E41A1C",
+  "#377EB8",
+  "#4DAF4A",
+  "#984EA3",
+  "#FF7F00",
+  "#FFFF33"
+)
+
+# Density plots of #features (investigation plot)
+# fs |>
+#   select(efs_all_nfeats, efs_coxlasso_nfeats, efs_rsf_nfeats, coxlasso_nfeats) |>
+#   pivot_longer(cols = everything(), names_to = "Method", values_to = "Features") |>
+#   filter(Features <= 50) |>
+#   ggplot(aes(x = Features, fill = Method, color = Method)) +
+#     geom_histogram(aes(y = after_stat(density)), bins = 50, alpha = 0.3,
+#                    position = "identity") +
+#     #geom_density(alpha = 0.5, linewidth = 1) +
+#     theme_minimal() +
+#     labs(title = "Feature Selection Distributions (<= 50 features)",
+#          x = "Number of Features",
+#          y = "Density") +
+#     scale_fill_manual(values = c("#E69F00", "#56B4E9", "#009E73", "#CC79A7")) +
+#     scale_color_manual(values = c("#E69F00", "#56B4E9", "#009E73", "#CC79A7")) +
+#     theme(legend.title = element_blank(),
+#           legend.position = "top")
+
+# Per-Omic Sparsity ----
+custom_colors = c(
+  "EFS (9 models)" = set1_colors[1],
+  "EFS (CoxLasso)" = set1_colors[2],
+  "EFS (3 RSFs)" = set1_colors[3],
+  "CoxLasso" = set1_colors[4]
+)
+# custom_colors = c(
+#   "efs_all_nfeats" = hue_colors[1],
+#   "efs_coxlasso_nfeats" = hue_colors[2],
+#   "efs_rsf_nfeats" = hue_colors[3],
+#   "coxlasso_nfeats" = hue_colors[4]
+# )
+
+fs_long = fs |>
   select(dataset_id, omic_id, ends_with("nfeats")) |>
   pivot_longer(
     cols = starts_with("efs") | starts_with("coxlasso"),
     names_to = "method",
     values_to = "n_feats"
-  )
+  ) |>
+  mutate(method = case_when(
+    method == "coxlasso_nfeats" ~ "CoxLasso",
+    method == "efs_all_nfeats" ~ "EFS (9 models)",
+    method == "efs_coxlasso_nfeats" ~ "EFS (CoxLasso)",
+    method == "efs_rsf_nfeats" ~ "EFS (3 RSFs)",
+    TRUE ~ method  # Keep other values unchanged
+  ))
 
 # Reorder omic_id within each dataset based on median number of features
-long_fs2 = long_fs |>
+fs_long |>
   group_by(dataset_id, omic_id) |>
-  mutate( #  Use median for ordering
-    omic_id = fct_reorder(omic_id, n_feats, .fun = median, .desc = TRUE)
+  mutate(
+    method = fct_reorder(method, n_feats, .fun = median, .desc = TRUE)
   ) |>
-  ungroup()
-
-long_fs2 |>
+  ungroup() |>
   ggplot(aes(x = omic_id, y = n_feats, fill = method)) +
     geom_boxplot(outlier.shape = NA, alpha = 0.7,
                  position = position_dodge2(preserve = "single")) +
-    geom_jitter(aes(color = method, size = n_feats), show.legend = FALSE,
+    geom_jitter(aes(color = method), show.legend = FALSE,
                 position = position_jitterdodge(jitter.width = 0.2, dodge.width = 0.75),
                 alpha = 0.7, size = 0.1) +
     scale_fill_manual(values = custom_colors) +
@@ -63,76 +93,163 @@ long_fs2 |>
     facet_wrap(~ dataset_id, scales = "free_x") + # One plot per dataset_id
     labs(
       x = "Omics",
-      y = "Number of Features (Sparsity)",
+      y = "Number of Features",
       fill = "Feature Selection Method",
-      title = "Feature Selection Sparsity across Omic Types and Methods"
+      title = "Feature Selection Sparsity across Omic Types"
     ) +
     theme(
-      axis.text.x = element_text(angle = 45, hjust = 1) # Rotate x-axis labels for readability
+      axis.text.x = element_text(angle = 45, hjust = 1)
     )
 
-# remove coxlasso
-long_fs3 = long_fs |>
-  filter(method != "coxlasso_nfeats") |>
+# Same plot, without coxlasso fs
+fs_long |>
+  filter(method != "CoxLasso") |>
   group_by(dataset_id, omic_id) |>
-  mutate( #  Use median for ordering
-    omic_id = fct_reorder(omic_id, n_feats, .fun = median, .desc = TRUE)
+  mutate(
+    method = fct_reorder(method, n_feats, .fun = median, .desc = TRUE)
   ) |>
-  ungroup()
-
-long_fs3 |>
+  ungroup() |>
   ggplot(aes(x = omic_id, y = n_feats, fill = method)) +
   geom_boxplot(outlier.shape = NA, alpha = 0.7,
                position = position_dodge2(preserve = "single")) +
-  geom_jitter(aes(color = method, size = n_feats), show.legend = FALSE,
+  geom_jitter(aes(color = method), show.legend = FALSE,
               position = position_jitterdodge(jitter.width = 0.2, dodge.width = 0.75),
-              alpha = 0.7, size = 0.01) +
+              alpha = 0.7, size = 0.1) +
   scale_fill_manual(values = custom_colors) +
   scale_color_manual(values = custom_colors) +
-  geom_hline(yintercept = 10, color = "red", linetype = "dashed", size = 0.8) +
   theme_minimal() +
   facet_wrap(~ dataset_id, scales = "free_x") + # One plot per dataset_id
   labs(
     x = "Omics",
-    y = "Number of Features (Sparsity)",
+    y = "Number of Features",
     fill = "Feature Selection Method",
-    title = "Feature Selection Sparsity across Omic Types and Methods"
+    title = "Feature Selection Sparsity across Omic Types"
   ) +
   theme(
-    axis.text.x = element_text(angle = 45, hjust = 1) # Rotate x-axis labels for readability
+    axis.text.x = element_text(angle = 45, hjust = 1)
   )
 
-# Performance Boxplots ----
+# BENCHMARK RESULTS
 result = readRDS(file = "bench/result.rds")
-sort(unlist(mlr3misc::map(result$coxlasso_feats, length))) # no zeros ok
-
-library(ggplot2)
-library(dplyr)
-library(tidyr)
+result = readRDS(file = "bench/result_gexfs.rds")
+# sort(unlist(mlr3misc::map(result$coxlasso_feats, length))) # no zeros ok
 
 # Convert data to long format for ggplot
 result_long = result |>
-  pivot_longer(cols = c(harrel_c, uno_c, dcalib, ibrier),
-               names_to = "measure", values_to = "value") |>
-  filter(!measure %in% c("dcalib", "ibrier")) # Exclude these metrics
+  # rename FS methods
+  mutate(fs_method_id = case_when(
+    fs_method_id == "coxlasso_feats" ~ "CoxLasso",
+    fs_method_id == "efs_all_feats" ~ "EFS (9 models)",
+    fs_method_id == "efs_coxlasso_feats" ~ "EFS (CoxLasso)",
+    fs_method_id == "efs_rsf_feats" ~ "EFS (3 RSFs)",
+    # `NA` fs method means that the 4 above FS methods were not used at all
+    is.na(fs_method_id) ~ "Baseline",
+    TRUE ~ fs_method_id  # Keep other values unchanged
+  )) |>
+  # rename model-data-configs
+  rename(model = model_data_config) |>
+  mutate(model = case_when(
+    model == "cox-clinical" ~ "Cox (Clinical)",
+    model == "rsf-clinical" ~ "RSF (Clinical)",
+    model == "coxlasso-clinical+gex" ~ "CoxLasso (Clinical + GEX)",
+    model == "rsf-clinical+gex" ~ "RSF (Clinical + GEX)",
+    model == "coxlasso-all" ~ "CoxLasso (ALL)",
+    model == "rsf-all" ~ "RSF (ALL)",
+    TRUE ~ model_data_config  # Keep other values unchanged
+  )) |>
+  pivot_longer(cols = c(harrell_c, uno_c, dcalib, ibrier),
+               names_to = "measure", values_to = "value")
+
+# Multi-Omics FS Sparsity ----
+custom_colors = c(
+  "EFS (9 models)" = set1_colors[1],
+  "EFS (CoxLasso)" = set1_colors[2],
+  "EFS (3 RSFs)" = set1_colors[3],
+  "CoxLasso" = set1_colors[4]
+)
 
 result_long |>
-  ggplot(aes(x = fs_method_id, y = value, fill = fs_method_id)) +
+  select(dataset_id, fs_method_id, rsmp_id, task_nfeats) |> # `model` doesn't play any role here
+  filter(!fs_method_id %in% "Baseline") |> # remove Baseline
+  distinct(dataset_id, fs_method_id, rsmp_id, .keep_all = TRUE) |> # remove duplicates
+  #group_by(fs_method_id) |>
+  mutate(
+    fs_method_id = fct_reorder(fs_method_id, task_nfeats, .fun = median, .desc = TRUE)
+  ) |>
+  ungroup() |>
+  ggplot(aes(x = fs_method_id, y = task_nfeats, fill = fs_method_id)) +
     geom_boxplot(alpha = 0.7, outlier.shape = NA) +
-    geom_jitter(aes(color = fs_method_id), width = 0.2, alpha = 0.7, size = 0.1) +
-    scale_fill_manual(values = c("efs_all_feats" = "#1f77b4", "coxlasso_feats" = "#ff7f0e")) +
-    scale_color_manual(values = c("efs_all_feats" = "#1f77b4", "coxlasso_feats" = "#ff7f0e")) +
-    geom_hline(yintercept = 0.5, color = "red", linetype = "dashed", size = 0.8) +
+    geom_jitter(aes(color = fs_method_id), show.legend = FALSE,
+                position = position_jitterdodge(jitter.width = 1.5, dodge.width = 0.75),
+                alpha = 0.7, size = 0.01) +
+    scale_color_manual(values = custom_colors) +
+    scale_fill_manual(values = custom_colors) +
     theme_minimal() +
-    facet_grid(measure ~ dataset_id, scales = "free_y") +
+    facet_wrap(~ dataset_id, scales = "free_x") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +  # Rotate x-axis labels for readability
     labs(
       x = "",
-      y = "Performance Score",
-      fill = "FS Method",
-      color = "FS Method"
+      y = "Number of Features",
+      title = "Sparsity of Multi-omics Datasets",
+      fill = "Feature Selection Method"
+    )
+
+# C-index ----
+# some stats
+result_long |>
+  filter(measure == "harrell_c") |>
+  group_by(dataset_id, fs_method_id, model) |>
+  summarize(cindex = median(value)) |>
+  arrange(dataset_id, fs_method_id, model) |>
+  print(n = 22)
+
+# if need be, define custom colors for each category of `model`
+# custom_colors = ...
+
+result_long |>
+  filter(measure == "harrell_c") |>
+  ggplot(aes(x = fs_method_id, y = value, fill = model)) +
+    geom_boxplot(alpha = 0.7, outlier.shape = NA) +
+    geom_jitter(aes(color = model), show.legend = FALSE,
+              position = position_jitterdodge(jitter.width = 0.2, dodge.width = 0.75),
+              alpha = 0.7, size = 0.01) +
+    #scale_fill_manual(values = custom_colors) +
+    #scale_color_manual(values = custom_colors) +
+    geom_hline(yintercept = 0.5, color = "red", linetype = "dashed", linewidth = 0.8) +
+    theme_minimal() +
+    # `measure ~ dataset_id` if more measures
+    facet_grid(. ~ dataset_id) +
+    labs(
+      x = "Feature Selection Method",
+      y = "C-index",
+      fill = "Integration Model (Data)"
     ) +
     ylim(c(0, 1)) +
     theme(
       axis.text.x = element_text(angle = 45, hjust = 1),
       legend.position = "top"
     )
+
+# IBS ----
+result_long |>
+  filter(measure == "ibrier") |>
+  ggplot(aes(x = fs_method_id, y = value, fill = model)) +
+  geom_boxplot(alpha = 0.7, outlier.shape = NA) +
+  geom_jitter(aes(color = model), show.legend = FALSE,
+              position = position_jitterdodge(jitter.width = 0.2, dodge.width = 0.75),
+              alpha = 0.7, size = 0.01) +
+  #scale_fill_manual(values = custom_colors) +
+  #scale_color_manual(values = custom_colors) +
+  geom_hline(yintercept = 0, color = "red", linetype = "dashed", linewidth = 0.8) +
+  theme_minimal() +
+  # `measure ~ dataset_id` if more measures
+  facet_grid(. ~ dataset_id) +
+  labs(
+    x = "Feature Selection Method",
+    y = "IBS ERV (3 time points)",
+    fill = "Integration Model (Data)"
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "top"
+  )
