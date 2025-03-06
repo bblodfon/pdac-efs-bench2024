@@ -218,6 +218,35 @@ task_list = mlr3misc::map(names(data_list_flt), function(.data_name) {
 })
 names(task_list) = names(data_list_flt)
 
+# ADD EXTRA CLINICAL VAR ----
+#' Why? => running a Cox model on the 3 clinical features alone results in C-index
+#' ~0.47, which is worse than random (0.5) performance!
+#' Here we add the number of lymph nodes from the GDC pathology sheet, which increases
+#' that a bit. See `https://portal.gdc.cancer.gov/projects/TCGA-PAAD`, we downloaded
+#' the `data/wissel2023/clinical.project-tcga-paad.2025-03-05.tar.gz` file and
+#' extracted the pathological data sheet
+path_tbl = read_tsv(file = file.path(dataset_path, "pathology_detail.tsv"))
+data = data.table(
+  id = path_tbl$case_submitter_id,
+  lymph_nodes_positive = as.integer(path_tbl$lymph_nodes_positive)
+)
+data
+
+clinical_task = task_list$clinical$clone()
+ids = clinical_task$row_names$row_name # patient ids
+all(ids %in% data$id) # check
+
+data = data[id %in% ids] # Keep only matching IDs
+data = data[order(match(id, ids))] # Reorder IDs
+stopifnot(data$id == ids) # check order
+data$id = NULL # drop id column
+
+# add lymph node number to clinical data
+clinical_task$cbind(data)
+clinical_task$missings() # still no missing values
+task_list$clinical = clinical_task # put it back
+data_list_flt[["clinical"]] = cbind(data_list_flt[["clinical"]], data) # same
+
 # RESAMPLING FOR BENCHMARK ----
 # 100 times => train/test split, stratified by censoring status
 clinical_task = task_list$clinical$clone()
@@ -249,4 +278,4 @@ saveRDS(ss, file = file.path(dataset_path, "subsampling.rds"))
 omic_ids = data.frame(omic_id = setdiff(names(task_list), "clinical"))
 write_csv(omic_ids, file = file.path(dataset_path, "omic_ids.csv"), col_names = FALSE)
 write_csv(metadata, file = file.path(dataset_path, "metadata.csv"))
-write_csv(bind_cols(data_list), file = file.path(dataset_path, "all_data_preprocessed.csv"))
+write_csv(bind_cols(data_list_flt), file = file.path(dataset_path, "all_data_preprocessed.csv"))
