@@ -59,14 +59,15 @@ model_data_configs = c(
   "coxlasso-all",
   # Model: RSF, Data: ALL => Clinical + OMICS
   "rsf-all",
-  # Model: CoxLasso, Data: Clinical + GEX only (Reference for Wissel2023/TCGA data)
-  # "coxlasso-clinical+gex",
-  # Model: RSF, Data: Clinical + GEX only (Reference for Wissel2023/TCGA data)
-  # "rsf-clinical+gex",
   # Model: Cox, Data: Clinical (Reference, for both datasets)
   "cox-clinical",
   # Model: RSF, Data: Clinical (Reference, for both datasets)
   "rsf-clinical"
+  # Some more investigative configs (due to clinical data being so under-performing in TCGA):
+  # Model: CoxLasso, Data: Clinical + GEX only (Reference for Wissel2023/TCGA data)
+  # "coxlasso-clinical+gex",
+  # Model: RSF, Data: Clinical + GEX only (Reference for Wissel2023/TCGA data)
+  # "rsf-clinical+gex"
 )
 
 # Define datasets
