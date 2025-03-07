@@ -1,8 +1,10 @@
-library(ggplot2)
-library(dplyr)
-library(tidyr)
-library(forcats)
-library(stringr)
+suppressPackageStartupMessages({
+  library(ggplot2)
+  library(dplyr)
+  library(tidyr)
+  library(forcats)
+  library(stringr)
+})
 
 # FEATURE SELECTION RESULTS (PER OMIC) ----
 fs = readRDS(file = "bench/fs.rds")
@@ -15,7 +17,7 @@ hue_colors = c(
   "#00BB4E",
   "#E76BF3",
   "#35A2FF",
-  "#9590FF",
+  "#9590FF"
 )
 
 # RColorBrewer::brewer.pal(n = 9, name = "Set1")
@@ -71,16 +73,24 @@ fs_long |>
     scale_fill_manual(values = custom_colors) +
     scale_color_manual(values = custom_colors) +
     theme_minimal() +
-    facet_wrap(~ dataset_id, scales = "free_x") + # One plot per dataset_id
+    facet_wrap(
+      ~ dataset_id,
+      scales = "free_x",  # One plot per dataset_id
+      labeller = as_labeller(
+        c(osipov2024 = "Osipov et. al (2024)",
+          wissel2023 = "Wissel et. al (2023)")
+      )
+    ) +
     labs(
       x = "Omics",
       y = "Number of Features",
-      fill = "Feature Selection Method",
+      fill = "Feature Selection\nMethod",
       title = "Feature Selection Sparsity across Omic Types"
     ) +
     theme(
       axis.text.x = element_text(angle = 45, hjust = 1)
     )
+ggsave("bench/img/omic_sparsity.png", width = 7, height = 5, dpi = 600, bg = "white")
 
 # Same plot, without coxlasso fs
 fs_long |>
@@ -99,7 +109,14 @@ fs_long |>
   scale_fill_manual(values = custom_colors) +
   scale_color_manual(values = custom_colors) +
   theme_minimal() +
-  facet_wrap(~ dataset_id, scales = "free_x") + # One plot per dataset_id
+  facet_wrap(
+    ~ dataset_id,
+    scales = "free_x",  # One plot per dataset_id
+    labeller = as_labeller(
+      c(osipov2024 = "Osipov et. al (2024)",
+        wissel2023 = "Wissel et. al (2023)")
+    )
+  ) +
   labs(
     x = "Omics",
     y = "Number of Features",
@@ -109,12 +126,13 @@ fs_long |>
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1)
   )
+ggsave("bench/img/omic_sparsity_no_coxlasso.png", width = 7, height = 5, dpi = 600, bg = "white")
 
 # BENCHMARK RESULTS ----
 result = readRDS(file = "bench/result.rds") # all omics
-result = readRDS(file = "bench/result_no_mut.rds") # no mutation (Wissel)
-result = readRDS(file = "bench/result_no_mut_or_cnv.rds") # no mutation or CNV (Wissel)
-result = readRDS(file = "bench/result_with_lymph.rds") # + extra clinical variable
+#result = readRDS(file = "bench/result_no_mut.rds") # no mutation (Wissel)
+#result = readRDS(file = "bench/result_no_mut_or_cnv.rds") # no mutation or CNV (Wissel)
+#result = readRDS(file = "bench/result_with_lymph.rds") # + extra clinical variable
 
 # Convert data to long format for ggplot
 result_long = result |>
@@ -142,7 +160,7 @@ result_long = result |>
   pivot_longer(cols = c(harrell_c, uno_c, brier_t12, brier_t24, brier_tmax24),
                names_to = "measure", values_to = "value")
 
-# Multi-omics FS Sparsity ----
+# Multi-omics (MM) Sparsity ----
 custom_colors = c(
   "EFS (9 models)" = set1_colors[1],
   "EFS (CoxLasso)" = set1_colors[2],
@@ -166,15 +184,26 @@ result_long |>
                 alpha = 0.7, size = 0.01) +
     scale_color_manual(values = custom_colors) +
     scale_fill_manual(values = custom_colors) +
-    theme_minimal() +
-    facet_wrap(~ dataset_id, scales = "free_x") +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +  # Rotate x-axis labels for readability
+    theme_minimal(base_size = 14) +
+    facet_wrap(
+      ~ dataset_id,
+      scales = "free_x",  # One plot per dataset_id
+      labeller = as_labeller(
+        c(osipov2024 = "Osipov et. al (2024)",
+          wissel2023 = "Wissel et. al (2023)")
+      )
+    ) +
+    theme(
+      axis.text.x = element_blank()
+      #axis.text.x = element_text(angle = 45, hjust = 1) # Rotate x-axis labels for readability
+    ) +
     labs(
       x = "",
       y = "Number of Features",
-      title = "Sparsity of Multi-omics Datasets",
-      fill = "Feature Selection Method"
+      #title = "Sparsity of Multi-omics Datasets",
+      fill = "Feature Selection\nMethod"
     )
+ggsave("bench/img/mm_sparsity.png", width = 7, height = 5, dpi = 600, bg = "white")
 
 # Multi-omics FS contribution ----
 extract_omics = function(features) {
@@ -201,7 +230,7 @@ ctr_res = result |>
   summarise(count = n(), .groups = "drop") |>
   mutate(percentage = count / task_nfeats) |>
   group_by(dataset_id, fs_method_id, omics_type) |>
-  summarise(avg_percentage = mean(percentage), .groups = "drop") |>
+  summarise(avg_percentage = mean(percentage), avg_count = round(mean(count)), .groups = "drop") |>
   mutate(fs_method_id = case_when(
     fs_method_id == "coxlasso_feats" ~ "CoxLasso",
     fs_method_id == "efs_all_feats" ~ "EFS (9 models)",
@@ -210,27 +239,66 @@ ctr_res = result |>
     TRUE ~ fs_method_id  # there shouldn't be any other category here
   ))
 
+# Stacked percentage plot
 ctr_res |>
   ggplot(aes(x = reorder(fs_method_id, -avg_percentage, sum),
              y = avg_percentage, fill = omics_type)) +
   geom_bar(stat = "identity", position = "stack") +
   scale_fill_manual(values = set1_colors) +
   facet_wrap(~ dataset_id,
-             labeller = as_labeller(
-               c(osipov2024 = "Osipov et. al (2024)",
-                 wissel2023 = "Wissel et. al (2023)")
-             )) +
+    labeller = as_labeller(
+      c(osipov2024 = "Osipov et. al (2024)",
+        wissel2023 = "Wissel et. al (2023)")
+    )
+  ) +
   labs(
     x = "Feature Selection Method",
     y = "Average Contribution (%)",
     fill = "Omic Type"
   ) +
-  theme_minimal() +
+  theme_minimal(base_size = 14) +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1),
     legend.position = "top"
   )
+ggsave("bench/img/omic_contribution_stacked.png", width = 8, height = 5, dpi = 600, bg = "white")
 
+# Average counts barplot
+## order by average total number of features per omic
+ctr_res2 = ctr_res |>
+  filter(omics_type != "Clinical") |>
+  group_by(dataset_id, omics_type) |>
+  summarize(avg_total = sum(avg_count), .groups = "drop") |>
+  arrange(dataset_id, desc(avg_total)) |>
+  mutate(omics_type = factor(omics_type, levels = unique(omics_type))) |>
+  select(-avg_total) |>
+  left_join(ctr_res, by = c("dataset_id", "omics_type")) |>
+  mutate(omics_type = factor(omics_type, levels = unique(omics_type)))
+
+ctr_res2 |>
+  ggplot(aes(x = reorder(fs_method_id, -avg_count, sum),
+             y = avg_count, fill = omics_type)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
+  scale_fill_manual(values = set1_colors) +
+  facet_wrap(
+    ~ dataset_id,
+    scales = "free_x",
+    labeller = as_labeller(
+      c(osipov2024 = "Osipov et. al (2024)",
+        wissel2023 = "Wissel et. al (2023)")
+    )
+  ) +
+  labs(
+    x = "Feature Selection Method",
+    y = "Average Number of Features",
+    fill = "Omic Type"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "top"
+  )
+ggsave("bench/img/omic_contribution_counts.png", width = 8, height = 5, dpi = 600, bg = "white")
 
 # C-index ----
 # some stats
@@ -241,11 +309,13 @@ result_long |>
   arrange(dataset_id, fs_method_id, model) |>
   print(n = 22)
 
-# if need be, define custom colors for each category of `model`
-# custom_colors = ...
-
+# Harrell's C
 result_long |>
   filter(measure == "harrell_c") |>
+  mutate(fs_method_id = factor(
+    fs_method_id,
+    levels = c("Baseline", "CoxLasso", "EFS (9 models)", "EFS (3 RSFs)", "EFS (CoxLasso)"))
+  ) |>
   ggplot(aes(x = fs_method_id, y = value, fill = model)) +
     geom_boxplot(alpha = 0.7, outlier.shape = NA) +
     geom_jitter(aes(color = model), show.legend = FALSE,
@@ -254,9 +324,14 @@ result_long |>
     #scale_fill_manual(values = custom_colors) +
     #scale_color_manual(values = custom_colors) +
     geom_hline(yintercept = 0.5, color = "red", linetype = "dashed", linewidth = 0.8) +
-    theme_minimal() +
+    theme_minimal(base_size = 14) +
     # `measure ~ dataset_id` if more measures
-    facet_grid(. ~ dataset_id) +
+    facet_wrap(~ dataset_id,
+      labeller = as_labeller(
+        c(osipov2024 = "Osipov et. al (2024)",
+          wissel2023 = "Wissel et. al (2023)")
+      )
+    ) +
     labs(
       x = "Feature Selection Method",
       y = "C-index",
@@ -267,6 +342,43 @@ result_long |>
       axis.text.x = element_text(angle = 45, hjust = 1),
       legend.position = "top"
     )
+ggsave("bench/img/cindex.png", width = 9, height = 5, dpi = 600, bg = "white")
+
+# Uno's C
+result_long |>
+  filter(measure == "uno_c") |>
+  mutate(fs_method_id = factor(
+    fs_method_id,
+    levels = c("Baseline", "CoxLasso", "EFS (9 models)", "EFS (3 RSFs)", "EFS (CoxLasso)"))
+  ) |>
+  ggplot(aes(x = fs_method_id, y = value, fill = model)) +
+  geom_boxplot(alpha = 0.7, outlier.shape = NA) +
+  geom_jitter(aes(color = model), show.legend = FALSE,
+              position = position_jitterdodge(jitter.width = 0.2, dodge.width = 0.75),
+              alpha = 0.7, size = 0.01) +
+  #scale_fill_manual(values = custom_colors) +
+  #scale_color_manual(values = custom_colors) +
+  geom_hline(yintercept = 0.5, color = "red", linetype = "dashed", linewidth = 0.8) +
+  theme_minimal(base_size = 14) +
+  # `measure ~ dataset_id` if more measures
+  facet_wrap(
+    ~ dataset_id,
+    labeller = as_labeller(
+      c(osipov2024 = "Osipov et. al (2024)",
+        wissel2023 = "Wissel et. al (2023)")
+      )
+  ) +
+  labs(
+    x = "Feature Selection Method",
+    y = "Uno's C-index",
+    fill = "Integration Model (Data)"
+  ) +
+  ylim(c(0, 1)) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "top"
+  )
+ggsave("bench/img/uno_cindex.png", width = 9, height = 5, dpi = 600, bg = "white")
 
 # IBS ----
 result_long |>
@@ -280,11 +392,9 @@ result_long |>
   #scale_fill_manual(values = custom_colors) +
   #scale_color_manual(values = custom_colors) +
   geom_hline(yintercept = 0, color = "red", linetype = "dashed", linewidth = 0.8) +
-  theme_minimal() +
-  # `measure ~ dataset_id` if more measures
+  theme_minimal(base_size = 14) +
   facet_grid(
     measure ~ dataset_id,
-    #scales = "free_y",
     labeller = as_labeller(
       c(brier_t12 = "t = 1 year",
         brier_t24 = "t = 2 years",
@@ -304,3 +414,4 @@ result_long |>
     axis.text.x = element_text(angle = 45, hjust = 1),
     legend.position = "top"
   )
+ggsave("bench/img/ibs.png", width = 9, height = 5, dpi = 600, bg = "white")
