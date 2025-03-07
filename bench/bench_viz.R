@@ -2,6 +2,7 @@ library(ggplot2)
 library(dplyr)
 library(tidyr)
 library(forcats)
+library(stringr)
 
 # FEATURE SELECTION RESULTS (PER OMIC) ----
 fs = readRDS(file = "bench/fs.rds")
@@ -17,14 +18,17 @@ hue_colors = c(
   "#9590FF",
 )
 
-# RColorBrewer::brewer.pal(n = 6, name = "Set1")
+# RColorBrewer::brewer.pal(n = 9, name = "Set1")
 set1_colors = c(
   "#E41A1C",
   "#377EB8",
   "#4DAF4A",
   "#984EA3",
   "#FF7F00",
-  "#FFFF33"
+  "#FFFF33",
+  "#A65628",
+  "#F781BF",
+  "#999999"
 )
 
 # Per-Omic Sparsity ----
@@ -57,6 +61,7 @@ fs_long |>
     method = fct_reorder(method, n_feats, .fun = median, .desc = TRUE)
   ) |>
   ungroup() |>
+  #ggplot(aes(x = method, y = n_feats, fill = omic_id)) +
   ggplot(aes(x = omic_id, y = n_feats, fill = method)) +
     geom_boxplot(outlier.shape = NA, alpha = 0.7,
                  position = position_dodge2(preserve = "single")) +
@@ -107,7 +112,9 @@ fs_long |>
 
 # BENCHMARK RESULTS ----
 result = readRDS(file = "bench/result.rds") # all omics
-result = readRDS(file = "bench/result_no_mut.rds")
+result = readRDS(file = "bench/result_no_mut.rds") # no mutation (Wissel)
+result = readRDS(file = "bench/result_no_mut_or_cnv.rds") # no mutation or CNV (Wissel)
+result = readRDS(file = "bench/result_with_lymph.rds") # + extra clinical variable
 
 # Convert data to long format for ggplot
 result_long = result |>
@@ -130,12 +137,12 @@ result_long = result |>
     model == "rsf-clinical+gex" ~ "RSF (Clinical + GEX)",
     model == "coxlasso-all" ~ "CoxLasso (ALL)",
     model == "rsf-all" ~ "RSF (ALL)",
-    TRUE ~ model_data_config  # Keep other values unchanged
+    TRUE ~ model  # Keep other values unchanged
   )) |>
   pivot_longer(cols = c(harrell_c, uno_c, brier_t12, brier_t24, brier_tmax24),
                names_to = "measure", values_to = "value")
 
-# Multi-Omics FS Sparsity ----
+# Multi-omics FS Sparsity ----
 custom_colors = c(
   "EFS (9 models)" = set1_colors[1],
   "EFS (CoxLasso)" = set1_colors[2],
@@ -168,6 +175,62 @@ result_long |>
       title = "Sparsity of Multi-omics Datasets",
       fill = "Feature Selection Method"
     )
+
+# Multi-omics FS contribution ----
+extract_omics = function(features) {
+  case_when(
+    str_starts(features, "cnv_") ~ "CNV",
+    str_starts(features, "snv_") ~ "SNV",
+    str_starts(features, "indel") ~ "Insertions/Deletions",
+    str_starts(features, "path_") ~ "Pathology",
+    str_starts(features, "gex_") ~ "Gene Expression",
+    str_starts(features, "meth_") ~ "Methylation",
+    str_starts(features, "mutation_") ~ "Mutation",
+    str_starts(features, "rppa_") ~ "RPPA",
+    TRUE ~ "Clinical" # everything else
+  )
+}
+
+ctr_res = result |>
+  # remove duplicated or configs that don't have multi-omics fs incorporated
+  filter(model_data_config == "coxlasso-all") |>
+  select(dataset_id, fs_method_id, rsmp_id, task_nfeats, task_feats) |>
+  unnest(task_feats) |> # smart, every row is per feature
+  mutate(omics_type = extract_omics(task_feats)) |>
+  group_by(dataset_id, fs_method_id, rsmp_id, omics_type, task_nfeats) |>
+  summarise(count = n(), .groups = "drop") |>
+  mutate(percentage = count / task_nfeats) |>
+  group_by(dataset_id, fs_method_id, omics_type) |>
+  summarise(avg_percentage = mean(percentage), .groups = "drop") |>
+  mutate(fs_method_id = case_when(
+    fs_method_id == "coxlasso_feats" ~ "CoxLasso",
+    fs_method_id == "efs_all_feats" ~ "EFS (9 models)",
+    fs_method_id == "efs_coxlasso_feats" ~ "EFS (CoxLasso)",
+    fs_method_id == "efs_rsf_feats" ~ "EFS (3 RSFs)",
+    TRUE ~ fs_method_id  # there shouldn't be any other category here
+  ))
+
+ctr_res |>
+  ggplot(aes(x = reorder(fs_method_id, -avg_percentage, sum),
+             y = avg_percentage, fill = omics_type)) +
+  geom_bar(stat = "identity", position = "stack") +
+  scale_fill_manual(values = set1_colors) +
+  facet_wrap(~ dataset_id,
+             labeller = as_labeller(
+               c(osipov2024 = "Osipov et. al (2024)",
+                 wissel2023 = "Wissel et. al (2023)")
+             )) +
+  labs(
+    x = "Feature Selection Method",
+    y = "Average Contribution (%)",
+    fill = "Omic Type"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "top"
+  )
+
 
 # C-index ----
 # some stats
@@ -207,8 +270,8 @@ result_long |>
 
 # IBS ----
 result_long |>
-  filter(grepl("brier", measure)) |>
-  #filter(measure == "brier_t12") |> # `brier_t24`, `brier_tmax24`
+  #filter(grepl("brier", measure)) |>
+  filter(measure == "brier_tmax24") |> # `brier_t24`, `brier_tmax24`
   ggplot(aes(x = fs_method_id, y = value, fill = model)) +
   geom_boxplot(alpha = 0.7, outlier.shape = NA) +
   geom_jitter(aes(color = model), show.legend = FALSE,
