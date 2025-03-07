@@ -1,10 +1,11 @@
+# some test figures
 suppressPackageStartupMessages({
-library(mlr3viz)
-library(data.table)
-library(mlr3misc)
-library(ggplot2)
-library(ComplexHeatmap)
-library(circlize)  # For creating custom color scale
+  library(mlr3viz)
+  library(data.table)
+  library(mlr3misc)
+  library(ggplot2)
+  library(ComplexHeatmap)
+  library(circlize)  # For creating custom color scale
 })
 
 # per learner class
