@@ -60,17 +60,13 @@ model_data_configs = c(
   # Model: RSF, Data: ALL => Clinical + OMICS
   "rsf-all",
   # Model: CoxLasso, Data: Clinical + GEX only (Reference for Wissel2023/TCGA data)
-  "coxlasso-clinical+gex",
+  # "coxlasso-clinical+gex",
+  # Model: RSF, Data: Clinical + GEX only (Reference for Wissel2023/TCGA data)
+  # "rsf-clinical+gex",
   # Model: Cox, Data: Clinical (Reference, for both datasets)
   "cox-clinical",
   # Model: RSF, Data: Clinical (Reference, for both datasets)
-  "rsf-clinical",
-  # Model: RSF, Data: Clinical + GEX only (Reference for Wissel2023/TCGA data)
-  "rsf-clinical+gex"
-
-  # TO TEST
-  # Model: CoxLasso, Data: Clinical (mandatory covariates) + MM dataset
-  # Model: CoxLasso|RSF, Data: Clinical + MM (remove Mutation + CNV)
+  "rsf-clinical"
 )
 
 # Define datasets
@@ -163,8 +159,8 @@ mm_bench = function(params, p) {
   } else {
     # combine all omics to a combined multi-omics dataset
     all_data = map_dtc(names(task_list), function(omic_id) {
-      # investigate: remove mutation omic
-      if (FALSE && omic_id == "mutation") {
+      # investigate: remove mutation omic (default FALSE: DON'T DO THIS)
+      if (FALSE && dataset_id == "wissel2023" && omic_id == "mutation") {
         return(data.table())
       }
 
