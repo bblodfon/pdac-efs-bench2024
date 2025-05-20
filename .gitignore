@@ -18,3 +18,4 @@ bench/log
 efs/tree_efs.rds
 server_bench_data/
 Rplots.pdf
+attic/*
