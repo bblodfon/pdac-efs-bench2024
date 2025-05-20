@@ -62,4 +62,4 @@ Output: [`bench/result.rds`](https://github.com/bblodfon/pdac-efs-bench2024/blob
 - `model_data_config`: Configuration used for model training, indicating the model type and which omics and/or clinical data were included (`all` means clinical + all omics)
 - `task_nfeats`: Number of selected features used in the task
 - `task_feats`: The specific features selected
-- Performance metrics such as Harrell's C-index, etc.
+- Performance scores for the test sets (Harrell's C-index, etc.)
