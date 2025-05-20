@@ -38,23 +38,23 @@ if (!test_directory_exists(res_path)) {
 
 # LIBRARIES ----
 suppressPackageStartupMessages({
-  library(mlr3)
-  library(mlr3extralearners)
-  library(mlr3proba)
-  library(mlr3fselect)
-  library(mlr3tuning)
-  library(mlr3pipelines)
-  library(ranger)
-  library(aorsf)
-  library(xgboost)
-  library(glmnet)
-  library(mboost)
-  library(CoxBoost)
+  library(mlr3) # 0.23
+  library(mlr3extralearners) # 1.0.0
+  library(mlr3proba) # 0.7.1
+  library(mlr3fselect) # 1.3.9000@b8be544, bbotk => 1.5.0
+  library(mlr3tuning) # 1.2.1
+  library(mlr3pipelines) # 0.7.1
+  library(ranger) # 0.17.0
+  library(aorsf) # 0.1.5
+  library(xgboost) # 1.7.8.1
+  library(glmnet) # 4.1-8
+  library(mboost) # 2.9-11
+  library(CoxBoost) # 1.5
   library(progressr)
   library(tictoc)
 })
-source("efs/helpers.R")
-source("efs/callbacks.R")
+source("bench/helpers.R")
+source("bench/callbacks.R")
 
 # TASK ----
 task = task_list[[omic_id]]$clone()

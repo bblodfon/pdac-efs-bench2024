@@ -28,7 +28,7 @@ suppressPackageStartupMessages({
   library(future.apply)
   library(progressr)
 })
-source("efs/helpers.R")
+source("bench/helpers.R")
 
 # Set parallel execution
 plan("multicore", workers = 30)
