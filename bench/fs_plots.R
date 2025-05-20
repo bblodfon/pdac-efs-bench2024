@@ -24,8 +24,8 @@ fs = readRDS(file = "bench/fs.rds")
 # more manual hue colors:
 # hue_colors = c("#F8766D", "#A3A500", "#00BB4E", "#E76BF3", "#35A2FF", "#9590FF")
 
-# RColorBrewer::brewer.pal(n = 9, name = "Set1")
-set1_colors = c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00", "#FFFF33", "#A65628", "#F781BF", "#999999")
+# RColorBrewer::brewer.pal(n = 9, name = "Set1") # plus two more I added
+set1_colors = c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00", "#FFFF33", "#A65628", "#F781BF", "#999999", "#17BECF","#6A5ACD")
 
 custom_colors = c(
   "hEFS (9 models)" = set1_colors[1],
@@ -323,14 +323,21 @@ read_efs_times = function(dataset_id, omic_id, rsmp_id) {
   has_aorsf = "aorsf" %in% df$id
 
   df |>
+    bind_rows(
+      tibble::tibble(id = "all", time = sum(df$time, na.rm = TRUE))
+    ) |>
     pivot_wider(names_from = "id", values_from = "time") |>
     rename_with(~ paste0("efs_", .)) |>
     mutate(
-      # the 3 RSF models aggregated time
+      # the 3 RSF models aggregated time (`efs_rsf` is RSF logrank + maxstat)
       efs_rsf_total = ifelse(has_aorsf, efs_rsf + efs_aorsf, efs_rsf),
-      # all 9 models aggregated time
-      efs_all = rowSums(across(starts_with("efs_"))) - efs_rsf_total
-    )
+      # the RSF using `logrank` splitrule is ~3x slower that using `maxstat` splitrule
+      # based on some previous benchmarks I had done => this is an estimation ofc
+      # as I ran these two together in this benchmark (see `efs.R`), but it is good enough!
+      efs_rsf_logrank = efs_rsf * (3/4),
+      efs_rsf_maxstat = efs_rsf * (1/4),
+    ) |>
+    select(!efs_rsf)
 }
 
 # add the efs execution times
@@ -348,7 +355,8 @@ timings_long = timings |>
   ) |>
   mutate(method = case_when(
     method == "coxlasso" ~ "CoxLasso",
-    method == "efs_rsf" ~ "EFS (2 RSFs)",
+    method == "efs_rsf_logrank" ~ "EFS (RSF-logrank)",
+    method == "efs_rsf_maxstat" ~ "EFS (RSF-maxstat)",
     method == "efs_aorsf" ~ "EFS (AORSF)",
     method == "efs_rsf_total" ~ "hEFS (3 RSFs)",
     method == "efs_xgb_cox" ~ "EFS (XGBoost-Cox)",
@@ -363,11 +371,9 @@ timings_long = timings |>
 
 # the 4 fs methods as in the previous per-omic plots
 timings_long |>
-  filter(method %in% c("EFS (2 RSFs)", "EFS (CoxLasso)", "hEFS (3 RSFs)", "hEFS (9 models)")) |>
+  filter(method %in% c("CoxLasso", "EFS (CoxLasso)", "hEFS (3 RSFs)", "hEFS (9 models)")) |>
   mutate(time = time/60) |> # convert to min
-  group_by(dataset_id, omic_id) |>
   mutate(method = fct_reorder(method, time, .fun = median, .desc = TRUE)) |>
-  ungroup() |>
   ggplot(aes(x = omic_id, y = time, fill = method)) +
   geom_boxplot(outlier.shape = NA, alpha = 0.7,
                position = position_dodge2(preserve = "single")) +
@@ -391,18 +397,19 @@ timings_long |>
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ggsave("bench/img/timings.png", width = 7, height = 5, dpi = 600, bg = "white")
 
+# remove the hybrid methods (that combine multiple learners)
 timings_long |>
-  filter(!method %in% c("EFS (2 RSFs)", "EFS (AORSF)", "hEFS (9 models)")) |>
+  filter(!method %in% c("hEFS (3 RSFs)", "hEFS (9 models)")) |>
   mutate(time = time/60) |> # convert to min
-  group_by(dataset_id, omic_id) |>
-  mutate(method = fct_reorder(method, time, .fun = median, .desc = TRUE)) |>
-  ungroup() |>
+  mutate(method = fct_reorder(method, time, .fun = median, .na_rm = TRUE, .desc = TRUE)) |>
   ggplot(aes(x = omic_id, y = time, fill = method)) +
   geom_boxplot(outlier.shape = NA, alpha = 0.7,
                position = position_dodge2(preserve = "single")) +
   geom_jitter(aes(color = method), show.legend = FALSE,
               position = position_jitterdodge(jitter.width = 0.2, dodge.width = 0.75),
               alpha = 0.7, size = 0.1) +
+  scale_fill_manual(values = set1_colors) +
+  scale_color_manual(values = set1_colors) +
   theme_minimal() +
   facet_wrap(
     ~ dataset_id,
