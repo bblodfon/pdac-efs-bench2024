@@ -144,7 +144,8 @@ feature_selection = function(params, p) {
     efs_rsf_nfeats = efs_rsf_nfeats,
     # Simple coxlasso for feature selection
     coxlasso_nfeats = length(coxlasso_feats),
-    coxlasso_feats = list(coxlasso_feats)
+    coxlasso_feats = list(coxlasso_feats),
+    coxlasso_train_time = coxlasso$timings[["train"]] # coxlasso fs/train time
   )
 }
 
