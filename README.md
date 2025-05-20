@@ -26,13 +26,14 @@ The benchmarking pipeline consists of three main steps, located in the `bench/` 
 
 ### Ensemble Feature Selection (EFS)
 
-Script: `bench/run_efs.sh`: Runs the Ensemble Feature Selection procedure (`efs.R`) across:
+Script: [`bench/run_efs.sh`](https://github.com/bblodfon/pdac-efs-bench2024/blob/main/bench/run_efs.sh): Runs the Ensemble Feature Selection procedure ([efs.R](https://github.com/bblodfon/pdac-efs-bench2024/blob/main/bench/efs.R)) across:
 
 - Both datasets
 - All omics
 - All resampling iterations
 
 Stores results as [EnsembleFSResult](https://mlr3fselect.mlr-org.com/reference/ensemble_fs_result.html) objects in `bench/efs/`.
+Contact the main author to share with you these intermediate results.
 
 ### Omic-wise Feature Selection
 
