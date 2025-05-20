@@ -19,7 +19,7 @@ suppressPackageStartupMessages({
 # load the feature selection results per omic ----
 fs = readRDS(file = "bench/fs.rds")
 
-## Per-Omic Sparsity ----
+# Per-Omic Sparsity ----
 # hue_colors = scale_color_hue()$palette(n = 5)
 # more manual hue colors:
 # hue_colors = c("#F8766D", "#A3A500", "#00BB4E", "#E76BF3", "#35A2FF", "#9590FF")
@@ -111,7 +111,7 @@ fs_long |>
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ggsave("bench/img/sparsity_no_coxlasso.png", width = 7, height = 5, dpi = 600, bg = "white")
 
-## Per-Omic Stability ----
+# Per-Omic Stability ----
 # Long format per method
 fs_long = fs |>
   select(dataset_id, omic_id, rsmp_id, ends_with("_feats")) |>
@@ -128,7 +128,7 @@ fs_long = fs |>
     TRUE ~ method  # Keep other values unchanged
   ))
 
-### Jaccard ----
+## Jaccard ----
 # Assess stability across all 100 resamplings - 1 value per (dataset, omic) combo
 stab_summary_jacc = fs_long |>
   group_by(dataset_id, omic_id, method) |>
@@ -160,7 +160,7 @@ stab_summary_jacc |>
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ggsave("bench/img/stability_jaccard.png", width = 7, height = 5, dpi = 600, bg = "white")
 
-### Nogueira ----
+## Nogueira ----
 # make a nice table with (dataset, omic, #features) since the Nogueira measure needs `p`
 dataset_ids = unique(fs$dataset_id)
 p_lookup = mlr3misc::map_dtr(dataset_ids, function(dataset_id) {
@@ -208,7 +208,7 @@ stab_summary_nog |>
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ggsave("bench/img/stability_nogueira.png", width = 7, height = 5, dpi = 600, bg = "white")
 
-### Variability - Jaccard ----
+## Variability - Jaccard ----
 # We repeatedly subsample the 100 resamplings (e.g., draw 50 at random) and
 # compute the stability each time
 
@@ -259,7 +259,7 @@ stab_jacc_rsmp |>
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ggsave("bench/img/stability_jaccard_var.png", width = 7, height = 5, dpi = 600, bg = "white")
 
-### Variability - Noqueira ----
+## Variability - Noqueira ----
 set.seed(42)
 stab_nog_rsmp = fs_long |>
   left_join(p_lookup, by = c("dataset_id", "omic_id")) |>
@@ -304,3 +304,116 @@ stab_nog_rsmp |>
     axis.text.x = element_text(angle = 45, hjust = 1)
   )
 ggsave("bench/img/stability_nogueira_var.png", width = 7, height = 5, dpi = 600, bg = "white")
+
+# Execution speed ----
+#' Compare Coxlasso vs hEFS variants
+timings = fs |>
+  select(dataset_id, omic_id, rsmp_id, coxlasso_train_time) |>
+  rename(coxlasso = coxlasso_train_time)
+summary(timings$coxlasso) # 0.5 - 6.3 secs
+
+# function to get the efs timings from the stored .csv files
+read_efs_times = function(dataset_id, omic_id, rsmp_id) {
+  file_path = file.path("bench", "efs", dataset_id, omic_id, paste0("times_", rsmp_id, ".csv"))
+  if (!file.exists(file_path)) {
+    return(NULL)
+  }
+
+  df = read_csv(file_path, show_col_types = FALSE, progress = FALSE) # (id, time), see `efs.R`
+  has_aorsf = "aorsf" %in% df$id
+
+  df |>
+    pivot_wider(names_from = "id", values_from = "time") |>
+    rename_with(~ paste0("efs_", .)) |>
+    mutate(
+      # the 3 RSF models aggregated time
+      efs_rsf_total = ifelse(has_aorsf, efs_rsf + efs_aorsf, efs_rsf),
+      # all 9 models aggregated time
+      efs_all = rowSums(across(starts_with("efs_"))) - efs_rsf_total
+    )
+}
+
+# add the efs execution times
+## per learned id (EFS) and aggregated across some learners (hEFS)
+timings = timings |>
+  rowwise() |>
+  mutate(read_efs_times(dataset_id, omic_id, rsmp_id)) |>
+  ungroup()
+
+timings_long = timings |>
+  pivot_longer(
+    cols = starts_with("efs") | starts_with("coxlasso"),
+    names_to = "method",
+    values_to = "time"
+  ) |>
+  mutate(method = case_when(
+    method == "coxlasso" ~ "CoxLasso",
+    method == "efs_rsf" ~ "EFS (2 RSFs)",
+    method == "efs_aorsf" ~ "EFS (AORSF)",
+    method == "efs_rsf_total" ~ "hEFS (3 RSFs)",
+    method == "efs_xgb_cox" ~ "EFS (XGBoost-Cox)",
+    method == "efs_xgb_aft_log" ~ "EFS (XGBoost-AFT)",
+    method == "efs_glmb_cox" ~ "EFS (GLMBoost-Cox)",
+    method == "efs_glmb_loglog" ~ "EFS (GLMBoost-AFT)",
+    method == "efs_coxboost" ~ "EFS (CoxBoost)",
+    method == "efs_coxlasso" ~ "EFS (CoxLasso)",
+    method == "efs_all" ~ "hEFS (9 models)",
+    TRUE ~ method  # there shouldn't be other categories here
+  ))
+
+# the 4 fs methods as in the previous per-omic plots
+timings_long |>
+  filter(method %in% c("EFS (2 RSFs)", "EFS (CoxLasso)", "hEFS (3 RSFs)", "hEFS (9 models)")) |>
+  mutate(time = time/60) |> # convert to min
+  group_by(dataset_id, omic_id) |>
+  mutate(method = fct_reorder(method, time, .fun = median, .desc = TRUE)) |>
+  ungroup() |>
+  ggplot(aes(x = omic_id, y = time, fill = method)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.7,
+               position = position_dodge2(preserve = "single")) +
+  geom_jitter(aes(color = method), show.legend = FALSE,
+              position = position_jitterdodge(jitter.width = 0.2, dodge.width = 0.75),
+              alpha = 0.7, size = 0.1) +
+  scale_fill_manual(values = custom_colors) +
+  scale_color_manual(values = custom_colors) +
+  theme_minimal() +
+  facet_wrap(
+    ~ dataset_id,
+    scales = "free_x",
+    labeller = as_labeller(dataset_labels)
+  ) +
+  labs(
+    x = "Omics",
+    y = "Execution Time (minutes)",
+    fill = "Feature Selection\nMethod",
+    title = "Execution Time of FS Methods across Omic Types"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("bench/img/timings.png", width = 7, height = 5, dpi = 600, bg = "white")
+
+timings_long |>
+  filter(!method %in% c("EFS (2 RSFs)", "EFS (AORSF)", "hEFS (9 models)")) |>
+  mutate(time = time/60) |> # convert to min
+  group_by(dataset_id, omic_id) |>
+  mutate(method = fct_reorder(method, time, .fun = median, .desc = TRUE)) |>
+  ungroup() |>
+  ggplot(aes(x = omic_id, y = time, fill = method)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.7,
+               position = position_dodge2(preserve = "single")) +
+  geom_jitter(aes(color = method), show.legend = FALSE,
+              position = position_jitterdodge(jitter.width = 0.2, dodge.width = 0.75),
+              alpha = 0.7, size = 0.1) +
+  theme_minimal() +
+  facet_wrap(
+    ~ dataset_id,
+    scales = "free_x",
+    labeller = as_labeller(dataset_labels)
+  ) +
+  labs(
+    x = "Omics",
+    y = "Execution Time (minutes)",
+    fill = "Feature Selection\nMethod",
+    title = "Execution Time of FS Methods across Omic Types"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("bench/img/timings_per_learner.png", width = 7, height = 5, dpi = 600, bg = "white")
