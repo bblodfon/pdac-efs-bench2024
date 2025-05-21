@@ -10,8 +10,13 @@ compute_redundancy_per_method = function(row, task_list, omic_id, train_set, met
     redundancy = c(
       values_pearson = NA,
       sign_pearson = NA,
+      prop_sign_pearson = NA,
+      values_spearman = NA,
+      sign_spearman = NA,
+      prop_sign_spearman = NA,
       values_xicor = NA,
-      sign_xicor = NA
+      sign_xicor = NA,
+      prop_sign_xicor = NA
     )
   } else{
     data = task_list[[omic_id]]$data(rows = train_set, cols = selected_features)
