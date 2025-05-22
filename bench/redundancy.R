@@ -3,9 +3,8 @@
 #'
 #' We calculate the pair-wise Pearson, Spearman and XI correlation (Chatterjee 2021) coefficients
 #' for every selected feature set and provide the following summary scores:
-#' - Average of the absolute values of the coefficients.
-#' - Number of significantly correlated variables (FDR-adjusted p-values, alpha = 0.05).
-#' - Proportion of significantly correlated features divided by the total number of selected features.
+#' - Mean absolute correlation between all unique feature pairs (Redundancy Rate).
+#' - Proportion of significant pairwise correlations, after multiple testing correction (FDR).
 #'
 #' Execute: `Rscript bench/redundancy.R` (from project root)
 
@@ -23,8 +22,7 @@ options(progressr.enable = TRUE)
 handlers(on_missing = "ignore", global = TRUE)
 handlers("progress")
 
-compute_redundancy_per_method = function(row, task_list, omic_id, train_set,
-                                         method, thres = 0.05, symmetric_xicor = TRUE) {
+compute_redundancy_per_method = function(row, task_list, omic_id, train_set, method) {
   selected_features = row[[method]][[1]]
 
   if (length(selected_features) == 1) {
@@ -42,15 +40,17 @@ compute_redundancy_per_method = function(row, task_list, omic_id, train_set,
   } else {
     data = task_list[[omic_id]]$data(rows = train_set, cols = selected_features)
 
-    combs = utils::combn(ncol(data), 2)
-    pearson_coeff = numeric(ncol(combs))
-    pearson_pvalues = numeric(ncol(combs))
-    spearman_coeff = numeric(ncol(combs))
-    spearman_pvalues = numeric(ncol(combs))
-    xicor_coeff = numeric()
-    xicor_pvalues = numeric()
+    combs = utils::combn(ncol(data), 2) # unique pairs only
+    n_pairs = ncol(combs)
 
-    for (i in 1:ncol(combs)) {
+    pearson_coeff = numeric(n_pairs)
+    pearson_pvalues = numeric(n_pairs)
+    spearman_coeff = numeric(n_pairs)
+    spearman_pvalues = numeric(n_pairs)
+    xicor_coeff = numeric(n_pairs)
+    xicor_pvalues = numeric(n_pairs)
+
+    for (i in 1:n_pairs) {
       x = data[[combs[1, i]]]
       y = data[[combs[2, i]]]
 
@@ -67,29 +67,26 @@ compute_redundancy_per_method = function(row, task_list, omic_id, train_set,
         xicor(y, x, pvalue = TRUE)
       )
 
-      if (symmetric_xicor) {
-        # choose the max value of xicor for directions according to
-        # (Chatterjee 2021) paper Remark No. 1
-        indx = which.max(map_dbl(xc, "xi"))
-        xicor_coeff = c(xicor_coeff, xc[[indx]]$xi)
-        xicor_pvalues = c(xicor_pvalues, xc[[indx]]$pval)
-      } else {
-        # add both (x,y) and (y,x) values to the result vector for hypothesis testing
-        xicor_coeff = c(xicor_coeff, map_dbl(xc, "xi"))
-        xicor_pvalues = c(xicor_pvalues, map_dbl(xc, "pval"))
-      }
+      # choose the max value of xicor, see (Chatterjee 2021) - Remark No. 1
+      indx = which.max(map_dbl(xc, "xi"))
+      xicor_coeff[i] = xc[[indx]]$xi
+      xicor_pvalues[i] = xc[[indx]]$pval
     }
 
     redundancy = c(
-      values_pearson = mean(abs(pearson_coeff)),
-      sign_pearson = sum(p.adjust(pearson_pvalues, "fdr") < thres),
-      prop_sign_pearson = sum(p.adjust(pearson_pvalues, "fdr") < thres) / length(pearson_pvalues),
-      values_spearman = mean(abs(spearman_coeff)),
-      sign_spearman = sum(p.adjust(spearman_pvalues, "fdr") < thres),
-      prop_sign_spearman = sum(p.adjust(spearman_pvalues, "fdr") < thres) / length(spearman_pvalues),
-      values_xicor = mean(abs(xicor_coeff)),
-      sign_xicor = sum(p.adjust(xicor_pvalues, "fdr") < thres),
-      prop_sign_xicor = sum(p.adjust(xicor_pvalues, "fdr") < thres) / length(xicor_pvalues)
+      #' `rrate` as in "redundancy rate"
+      #' Pearson
+      rrate_pearson = mean(abs(pearson_coeff)),
+      prop5_pearson = sum(p.adjust(pearson_pvalues, "fdr") < 0.05) / length(n_pairs),
+      prop1_pearson = sum(p.adjust(pearson_pvalues, "fdr") < 0.01) / length(n_pairs),
+      #' Spearman
+      rrate_spearman = mean(abs(spearman_coeff)),
+      prop5_spearman = sum(p.adjust(spearman_pvalues, "fdr") < 0.05) / length(n_pairs),
+      prop1_spearman = sum(p.adjust(spearman_pvalues, "fdr") < 0.01) / length(n_pairs),
+      #' Xicor
+      rrate_xicor = mean(abs(xicor_coeff)),
+      prop5_xicor = sum(p.adjust(xicor_pvalues, "fdr") < 0.05) / length(n_pairs),
+      prop1_xicor = sum(p.adjust(xicor_pvalues, "fdr") < 0.01) / length(n_pairs)
     )
   }
 
