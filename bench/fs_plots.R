@@ -1,12 +1,18 @@
-#' **Sparsity and stability** analysis of feature selection methods applied to
-#' multi-omic datasets.
-#' We visualize how many features were selected per omic type and how consistent
-#' the selections were across resamplings.
+#' **Sparsity, stability, runtime, redundancy** analysis of feature selection methods
+#' applied to multi-omic datasets.
+#' For more details on the redundancy analysis, see `bench/redundancy.R`.
+#'
+#' This script visualizes and compares feature selection methods in terms of:
+#' - **Sparsity**: Number of features selected per omic type
+#' - **Stability**: Consistency of selected features across resampling iterations
+#' - **Execution Time**: Computational time required by each method
+#' - **Redundancy**: Degree of correlation or dependency among the selected features
 #'
 #' Execute: `Rscript bench/fs_plots.R` (from project root)
 
 suppressPackageStartupMessages({
   library(ggplot2)
+  library(cowplot)
   library(tibble)
   library(dplyr)
   library(tidyr)
@@ -16,10 +22,6 @@ suppressPackageStartupMessages({
   library(mlr3misc)
 })
 
-# load the feature selection results per omic ----
-fs = readRDS(file = "bench/fs.rds")
-
-# Per-Omic Sparsity ----
 # hue_colors = scale_color_hue()$palette(n = 5)
 # more manual hue colors:
 # hue_colors = c("#F8766D", "#A3A500", "#00BB4E", "#E76BF3", "#35A2FF", "#9590FF")
@@ -39,6 +41,10 @@ osipov_abbrev = "Osipov et al. (2024)"
 wissel_abbrev = "Wissel et al. (2023)"
 dataset_labels = c(osipov2024 = osipov_abbrev, wissel2023 = wissel_abbrev)
 
+# load the feature selection results per omic
+fs = readRDS(file = "bench/fs.rds")
+
+# Per-Omic Sparsity ----
 fs_long = fs |>
   select(dataset_id, omic_id, ends_with("nfeats")) |>
   pivot_longer(
@@ -305,7 +311,7 @@ stab_nog_rsmp |>
   )
 ggsave("bench/img/stability_nogueira_var.png", width = 7, height = 5, dpi = 600, bg = "white")
 
-# Execution speed ----
+# Runtime ----
 #' Compare Coxlasso vs hEFS variants
 timings = fs |>
   select(dataset_id, omic_id, rsmp_id, coxlasso_train_time) |>
@@ -424,3 +430,174 @@ timings_long |>
   ) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ggsave("bench/img/timings_per_learner.png", width = 7, height = 5, dpi = 600, bg = "white")
+
+# Per-Omic Redundancy ----
+res = readRDS("bench/fs_red.rds")
+
+res_long = res |>
+  pivot_longer(
+    cols = -c(dataset_id, omic_id, rsmp_id),
+    names_to = "tmp",
+    values_to = "value"
+  ) |>
+  extract(
+    tmp,
+    into = c("method", "type", "metric"),
+    regex = "(efs_all|efs_coxlasso|efs_rsf|coxlasso)_(rrate|srp5|srp1)_(pearson|spearman|xicor)",
+    remove = FALSE
+  ) |>
+  select(-tmp) |>
+  mutate(method = case_when(
+    method == "coxlasso" ~ "CoxLasso",
+    method == "efs_rsf" ~ "hEFS (3 RSFs)",
+    method == "efs_coxlasso" ~ "EFS (CoxLasso)",
+    method == "efs_all" ~ "hEFS (9 models)",
+    TRUE ~ method  # there shouldn't be other categories here
+  ))
+
+metric_labels = c(
+  pearson = "Pearson",
+  spearman = "Spearman",
+  xicor = "ξ Correlation"
+)
+
+method_lvls = c("CoxLasso", "EFS (CoxLasso)", "hEFS (3 RSFs)", "hEFS (9 models)")
+
+## Redundancy Rate ----
+res_long |>
+  filter(type == "rrate", !is.na(value)) |> # all metrics
+  mutate(method = factor(method, levels = method_lvls)) |>
+  # Reorder method based on overall median redundancy
+  #mutate(method = fct_reorder(method, value, .fun = median, .na_rm = TRUE, .desc = FALSE)) |>
+  ggplot(aes(x = omic_id, y = value, fill = method)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.7,
+               position = position_dodge2(preserve = "single")) +
+  geom_jitter(aes(color = method), show.legend = FALSE,
+              position = position_jitterdodge(jitter.width = 0.2, dodge.width = 0.75),
+              alpha = 0.7, size = 0.1) +
+  scale_fill_manual(values = custom_colors) +
+  scale_color_manual(values = custom_colors) +
+  theme_minimal() +
+  facet_grid(
+    metric ~ dataset_id,
+    scales = "free_x",
+    labeller = labeller(
+      metric = as_labeller(metric_labels),
+      dataset_id = as_labeller(dataset_labels))
+  ) +
+  labs(
+    x = "Omics",
+    y = "Redundancy Rate",
+    fill = "Feature Selection\nMethod",
+    title = "Redundancy across Omic Types and Metrics"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("bench/img/redundancy_rate_all_metrics.png", width = 7, height = 5, dpi = 600, bg = "white")
+
+p = res_long |>
+  filter(type == "rrate", metric == "xicor", !is.na(value)) |>
+  mutate(method = factor(method, levels = method_lvls)) |>
+  #mutate(method = fct_reorder(method, value, .fun = median, .na_rm = TRUE, .desc = FALSE)) |>
+  ggplot(aes(x = omic_id, y = value, fill = method)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.7,
+               position = position_dodge2(preserve = "single")) +
+  geom_jitter(aes(color = method), show.legend = FALSE,
+              position = position_jitterdodge(jitter.width = 0.2, dodge.width = 0.75),
+              alpha = 0.7, size = 0.1) +
+  scale_fill_manual(values = custom_colors) +
+  scale_color_manual(values = custom_colors) +
+  theme_minimal() +
+  facet_grid(
+    metric ~ dataset_id,
+    scales = "free_x",
+    labeller = labeller(
+      metric = as_labeller(metric_labels),
+      dataset_id = as_labeller(dataset_labels))
+  ) +
+  labs(
+    x = "Omics",
+    y = "Redundancy Rate",
+    fill = "Feature Selection\nMethod",
+    title = "Redundancy across Omic Types"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggdraw(p) +
+  draw_text("Lower is better", x = 0.105, y = 0.6, angle = 90, size = 10, hjust = 0) +
+  draw_line(
+    x = c(0.09, 0.09),
+    y = c(0.8, 0.55),
+    arrow = arrow(length = unit(0.03, "npc")),  # arrowhead at end
+    colour = "black",
+    size = 0.8
+  )
+ggsave("bench/img/redundancy_rate_xicor.png", width = 7, height = 5, dpi = 600, bg = "white")
+
+## Significant Redundancy Proportion ----
+res_long |>
+  filter(type == "srp5", !is.na(value)) |> # all metrics
+  mutate(method = factor(method, levels = method_lvls)) |>
+  #mutate(method = fct_reorder(method, value, .fun = median, .na_rm = TRUE, .desc = FALSE)) |>
+  ggplot(aes(x = omic_id, y = value, fill = method)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.7,
+               position = position_dodge2(preserve = "single")) +
+  geom_jitter(aes(color = method), show.legend = FALSE,
+              position = position_jitterdodge(jitter.width = 0.2, dodge.width = 0.75),
+              alpha = 0.7, size = 0.1) +
+  scale_fill_manual(values = custom_colors) +
+  scale_color_manual(values = custom_colors) +
+  theme_minimal() +
+  facet_grid(
+    metric ~ dataset_id,
+    scales = "free_x",
+    labeller = labeller(
+      metric = as_labeller(metric_labels),
+      dataset_id = as_labeller(dataset_labels))
+  ) +
+  labs(
+    x = "Omics",
+    y = "Significant Redundancy Proportion",
+    fill = "Feature Selection\nMethod",
+    title = "Redundancy across Omic Types and Metrics"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("bench/img/srp1_all_metrics.png", width = 7, height = 5, dpi = 600, bg = "white")
+
+p = res_long |>
+  filter(type == "srp5", metric == "xicor", !is.na(value)) |>
+  mutate(method = factor(method, levels = method_lvls)) |>
+  #mutate(method = fct_reorder(method, value, .fun = median, .na_rm = TRUE, .desc = TRUE)) |>
+  ggplot(aes(x = omic_id, y = value, fill = method)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.7,
+               position = position_dodge2(preserve = "single")) +
+  geom_jitter(aes(color = method), show.legend = FALSE,
+              position = position_jitterdodge(jitter.width = 0.2, dodge.width = 0.75),
+              alpha = 0.7, size = 0.1) +
+  scale_fill_manual(values = custom_colors) +
+  scale_color_manual(values = custom_colors) +
+  theme_minimal() +
+  facet_grid(
+    metric ~ dataset_id,
+    scales = "free_x",
+    labeller = labeller(
+      metric = as_labeller(metric_labels),
+      dataset_id = as_labeller(dataset_labels))
+  ) +
+  labs(
+    x = "Omics",
+    y = "Redundancy Redundancy Proportion",
+    fill = "Feature Selection\nMethod",
+    title = "Redundancy across Omic Types"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggdraw(p) +
+  draw_text("Lower is better", x = 0.105, y = 0.6, angle = 90, size = 10, hjust = 0) +
+  draw_line(
+    x = c(0.09, 0.09),
+    y = c(0.8, 0.55),
+    arrow = arrow(length = unit(0.03, "npc")),
+    colour = "black",
+    size = 0.8
+  )
+ggsave("bench/img/srp5_xicor.png", width = 7, height = 5, dpi = 600, bg = "white")
