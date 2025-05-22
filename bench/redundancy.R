@@ -77,16 +77,16 @@ compute_redundancy_per_method = function(row, task_list, omic_id, train_set, met
       #' `rrate` as in "redundancy rate"
       #' Pearson
       rrate_pearson = mean(abs(pearson_coeff)),
-      prop5_pearson = sum(p.adjust(pearson_pvalues, "fdr") < 0.05) / length(n_pairs),
-      prop1_pearson = sum(p.adjust(pearson_pvalues, "fdr") < 0.01) / length(n_pairs),
+      prop5_pearson = sum(p.adjust(pearson_pvalues, "fdr") < 0.05) / n_pairs,
+      prop1_pearson = sum(p.adjust(pearson_pvalues, "fdr") < 0.01) / n_pairs,
       #' Spearman
       rrate_spearman = mean(abs(spearman_coeff)),
-      prop5_spearman = sum(p.adjust(spearman_pvalues, "fdr") < 0.05) / length(n_pairs),
-      prop1_spearman = sum(p.adjust(spearman_pvalues, "fdr") < 0.01) / length(n_pairs),
+      prop5_spearman = sum(p.adjust(spearman_pvalues, "fdr") < 0.05) / n_pairs,
+      prop1_spearman = sum(p.adjust(spearman_pvalues, "fdr") < 0.01) / n_pairs,
       #' Xicor
       rrate_xicor = mean(abs(xicor_coeff)),
-      prop5_xicor = sum(p.adjust(xicor_pvalues, "fdr") < 0.05) / length(n_pairs),
-      prop1_xicor = sum(p.adjust(xicor_pvalues, "fdr") < 0.01) / length(n_pairs)
+      prop5_xicor = sum(p.adjust(xicor_pvalues, "fdr") < 0.05) / n_pairs,
+      prop1_xicor = sum(p.adjust(xicor_pvalues, "fdr") < 0.01) / n_pairs
     )
   }
 
