@@ -3,8 +3,9 @@
 #'
 #' We calculate the pair-wise Pearson, Spearman and XI correlation (Chatterjee 2021) coefficients
 #' for every selected feature set and provide the following summary scores:
-#' - Mean absolute correlation between all unique feature pairs (Redundancy Rate).
-#' - Proportion of significant pairwise correlations, after multiple testing correction (FDR).
+#' - Mean absolute correlation between all unique feature pairs (Redundancy Rate or RR).
+#' - Proportion of FDR-significant pairs (Significant Redundancy Proportion or SRP).
+#' i.e. "What proportion of pairs are significantly redundant?"
 #'
 #' Execute: `Rscript bench/redundancy.R` (from project root)
 
@@ -28,14 +29,14 @@ compute_redundancy_per_method = function(row, task_list, omic_id, train_set, met
   if (length(selected_features) == 1) {
     redundancy = c(
       rrate_pearson = NA,
-      prop5_pearson = NA,
-      prop1_pearson = NA,
+      srp5_pearson = NA,
+      srp1_pearson = NA,
       rrate_spearman = NA,
-      prop5_spearman = NA,
-      prop1_spearman = NA,
+      srp5_spearman = NA,
+      srp1_spearman = NA,
       rrate_xicor = NA,
-      prop5_xicor = NA,
-      prop1_xicor = NA
+      srp5_xicor = NA,
+      srp1_xicor = NA
     )
   } else {
     data = task_list[[omic_id]]$data(rows = train_set, cols = selected_features)
@@ -77,16 +78,16 @@ compute_redundancy_per_method = function(row, task_list, omic_id, train_set, met
       #' `rrate` as in "redundancy rate"
       #' Pearson
       rrate_pearson = mean(abs(pearson_coeff)),
-      prop5_pearson = sum(p.adjust(pearson_pvalues, "fdr") < 0.05) / n_pairs,
-      prop1_pearson = sum(p.adjust(pearson_pvalues, "fdr") < 0.01) / n_pairs,
+      srp5_pearson = sum(p.adjust(pearson_pvalues, "fdr") < 0.05) / n_pairs,
+      srp1_pearson = sum(p.adjust(pearson_pvalues, "fdr") < 0.01) / n_pairs,
       #' Spearman
       rrate_spearman = mean(abs(spearman_coeff)),
-      prop5_spearman = sum(p.adjust(spearman_pvalues, "fdr") < 0.05) / n_pairs,
-      prop1_spearman = sum(p.adjust(spearman_pvalues, "fdr") < 0.01) / n_pairs,
+      srp5_spearman = sum(p.adjust(spearman_pvalues, "fdr") < 0.05) / n_pairs,
+      srp1_spearman = sum(p.adjust(spearman_pvalues, "fdr") < 0.01) / n_pairs,
       #' Xicor
       rrate_xicor = mean(abs(xicor_coeff)),
-      prop5_xicor = sum(p.adjust(xicor_pvalues, "fdr") < 0.05) / n_pairs,
-      prop1_xicor = sum(p.adjust(xicor_pvalues, "fdr") < 0.01) / n_pairs
+      srp5_xicor = sum(p.adjust(xicor_pvalues, "fdr") < 0.05) / n_pairs,
+      srp1_xicor = sum(p.adjust(xicor_pvalues, "fdr") < 0.01) / n_pairs
     )
   }
 
