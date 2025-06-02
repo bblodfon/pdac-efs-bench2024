@@ -585,7 +585,7 @@ p = res_long |>
   ) +
   labs(
     x = "Omics",
-    y = "Redundancy Redundancy Proportion",
+    y = "Significant Redundancy Proportion",
     fill = "Feature Selection\nMethod",
     title = "Redundancy across Omic Types"
   ) +
