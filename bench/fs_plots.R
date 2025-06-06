@@ -61,7 +61,7 @@ fs_long = fs |>
   ))
 
 # Reorder omic_id within each dataset based on median number of features
-fs_long |>
+p1 = fs_long |>
   group_by(dataset_id, omic_id) |>
   mutate(method = fct_reorder(method, n_feats, .fun = median, .desc = TRUE)) |>
   ungroup() |>
@@ -73,7 +73,7 @@ fs_long |>
               alpha = 0.7, size = 0.1) +
   scale_fill_manual(values = custom_colors) +
   scale_color_manual(values = custom_colors) +
-  theme_minimal() +
+  theme_minimal(base_size = 16) +
   facet_wrap(
     ~ dataset_id,
     scales = "free_x",  # One plot per dataset_id
@@ -81,12 +81,27 @@ fs_long |>
   ) +
   labs(
     x = "Omics",
-    y = "Number of Features",
-    fill = "Feature Selection\nMethod",
+    y = "Number of Selected Features",
+    fill = "FS Method",
     title = "Feature Selection Sparsity across Omic Types"
   ) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    text = element_text(family = "Arial")
+  )
+p1
 ggsave("bench/img/sparsity.png", width = 7, height = 5, dpi = 600, bg = "white")
+
+ggdraw(p1) +
+draw_text("Lower is better", x = 0.17, y = 0.6, angle = 90, size = 10, hjust = 0) +
+  draw_line(
+    x = c(0.145, 0.145),
+    y = c(0.8, 0.55),
+    arrow = arrow(length = unit(0.03, "npc")),  # arrowhead at end
+    colour = "black",
+    size = 0.8
+  )
+ggsave("bench/img/sparsity_witharrow.png", width = 7, height = 5, dpi = 600, bg = "white")
 
 # Same plot, without coxlasso fs
 fs_long |>
@@ -110,11 +125,14 @@ fs_long |>
   ) +
   labs(
     x = "Omics",
-    y = "Number of Features",
-    fill = "Feature Selection Method",
+    y = "Number of Selected Features",
+    fill = "FS Method",
     title = "Feature Selection Sparsity across Omic Types"
   ) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    text = element_text(family = "Arial")
+  )
 ggsave("bench/img/sparsity_no_coxlasso.png", width = 7, height = 5, dpi = 600, bg = "white")
 
 # Per-Omic Stability ----
@@ -160,10 +178,13 @@ stab_summary_jacc |>
     labs(
       x = "Omics",
       y = "Jaccard Similarity",
-      fill = "Feature Selection\nMethod",
+      fill = "FS Method",
       title = "Feature Selection Stability across Omic Types"
     ) +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      text = element_text(family = "Arial")
+    )
 ggsave("bench/img/stability_jaccard.png", width = 7, height = 5, dpi = 600, bg = "white")
 
 ## Nogueira ----
@@ -208,10 +229,13 @@ stab_summary_nog |>
   labs(
     x = "Omics",
     y = "Nogueira Similarity",
-    fill = "Feature Selection\nMethod",
+    fill = "FS Method",
     title = "Feature Selection Stability across Omic Types"
   ) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    text = element_text(family = "Arial")
+  )
 ggsave("bench/img/stability_nogueira.png", width = 7, height = 5, dpi = 600, bg = "white")
 
 ## Variability - Jaccard ----
@@ -258,11 +282,14 @@ stab_jacc_rsmp |>
   labs(
     x = "Omics",
     y = "Jaccard Similarity",
-    fill = "Feature Selection\nMethod",
+    fill = "FS Method",
     title = "Feature Selection Stability across Omic Types"
   ) +
   ylim(c(0, 0.65)) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    text = element_text(family = "Arial")
+  )
 ggsave("bench/img/stability_jaccard_var.png", width = 7, height = 5, dpi = 600, bg = "white")
 
 ## Variability - Noqueira ----
@@ -302,12 +329,13 @@ stab_nog_rsmp |>
   labs(
     x = "Omics",
     y = "Noqueira Similarity",
-    fill = "Feature Selection\nMethod",
+    fill = "FS Method",
     title = "Feature Selection Stability across Omic Types"
   ) +
   ylim(c(0, 0.67)) +
   theme(
-    axis.text.x = element_text(angle = 45, hjust = 1)
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    text = element_text(family = "Arial")
   )
 ggsave("bench/img/stability_nogueira_var.png", width = 7, height = 5, dpi = 600, bg = "white")
 
@@ -325,7 +353,7 @@ read_efs_times = function(dataset_id, omic_id, rsmp_id) {
     return(NULL)
   }
 
-  df = read_csv(file_path, show_col_types = FALSE, progress = FALSE) # (id, time), see `efs.R`
+  df = readr::read_csv(file_path, show_col_types = FALSE, progress = FALSE) # (id, time), see `efs.R`
   has_aorsf = "aorsf" %in% df$id
 
   df |>
@@ -397,10 +425,13 @@ timings_long |>
   labs(
     x = "Omics",
     y = "Execution Time (minutes)",
-    fill = "Feature Selection\nMethod",
+    fill = "FS Method",
     title = "Execution Time of FS Methods across Omic Types"
   ) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    text = element_text(family = "Arial")
+  )
 ggsave("bench/img/timings.png", width = 7, height = 5, dpi = 600, bg = "white")
 
 # remove the hybrid methods (that combine multiple learners)
@@ -425,10 +456,13 @@ timings_long |>
   labs(
     x = "Omics",
     y = "Execution Time (minutes)",
-    fill = "Feature Selection\nMethod",
+    fill = "FS Method",
     title = "Execution Time of FS Methods across Omic Types"
   ) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    text = element_text(family = "Arial")
+  )
 ggsave("bench/img/timings_per_learner.png", width = 7, height = 5, dpi = 600, bg = "white")
 
 # Per-Omic Redundancy ----
@@ -488,10 +522,13 @@ res_long |>
   labs(
     x = "Omics",
     y = "Redundancy Rate",
-    fill = "Feature Selection\nMethod",
+    fill = "FS Method",
     title = "Redundancy across Omic Types and Metrics"
   ) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    text = element_text(family = "Arial")
+  )
 ggsave("bench/img/redundancy_rate_all_metrics.png", width = 7, height = 5, dpi = 600, bg = "white")
 
 p = res_long |>
@@ -517,10 +554,13 @@ p = res_long |>
   labs(
     x = "Omics",
     y = "Redundancy Rate",
-    fill = "Feature Selection\nMethod",
+    fill = "FS Method",
     title = "Redundancy across Omic Types"
   ) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    text = element_text(family = "Arial")
+  )
 
 ggdraw(p) +
   draw_text("Lower is better", x = 0.105, y = 0.6, angle = 90, size = 10, hjust = 0) +
@@ -557,11 +597,14 @@ res_long |>
   labs(
     x = "Omics",
     y = "Significant Redundancy Proportion",
-    fill = "Feature Selection\nMethod",
+    fill = "FS Method",
     title = "Redundancy across Omic Types and Metrics"
   ) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-ggsave("bench/img/srp1_all_metrics.png", width = 7, height = 5, dpi = 600, bg = "white")
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    text = element_text(family = "Arial")
+  )
+ggsave("bench/img/srp5_all_metrics.png", width = 7, height = 5, dpi = 600, bg = "white")
 
 p = res_long |>
   filter(type == "srp5", metric == "xicor", !is.na(value)) |>
@@ -586,10 +629,13 @@ p = res_long |>
   labs(
     x = "Omics",
     y = "Significant Redundancy Proportion",
-    fill = "Feature Selection\nMethod",
+    fill = "FS Method",
     title = "Redundancy across Omic Types"
   ) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    text = element_text(family = "Arial")
+  )
 
 ggdraw(p) +
   draw_text("Lower is better", x = 0.105, y = 0.6, angle = 90, size = 10, hjust = 0) +
