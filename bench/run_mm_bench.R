@@ -33,12 +33,13 @@ suppressPackageStartupMessages({
   library(readr)
   library(dplyr)
   library(tibble)
+  library(stringr)
   library(future.apply)
   library(progressr)
 })
 
 # Set parallel execution
-plan("multicore", workers = 30)
+plan("multicore", workers = 13)
 
 # Enable progress bars
 options(progressr.enable = TRUE)
@@ -48,26 +49,27 @@ handlers("progress")
 # load feature selection results
 fs = readRDS(file = "bench/fs.rds")
 # define/get the different feature selection methods
-#fs_method_ids = c("efs_all_feats", "coxlasso_feats")
 fs_method_ids = colnames(fs)[endsWith(colnames(fs), "_feats")]
 
-# Define the models we will use for benchmarking and the data these will be applied on
-# This is after feature selection per omic is done and late-integration of features
-# is performed
+#' Pattern: a-b-c, where:
+#' `a`: integration model for late fusion (or baseline)
+#' `b`: data type(s)
+#' `c`: FS method
 model_data_configs = c(
-  # Model: CoxLasso, Data: ALL => Clinical + OMICS
+  # Integration Model: CoxLasso, Data: ALL => Clinical + OMICS
   "coxlasso-all",
-  # Model: RSF, Data: ALL => Clinical + OMICS
+  # Integration Model: RSF, Data: ALL => Clinical + OMICS
   "rsf-all",
-  # Model: Cox, Data: Clinical (Reference, for both datasets)
+  # (Baseline) Model: CoxPH, Data: Clinical (Reference, for both datasets)
   "cox-clinical",
-  # Model: RSF, Data: Clinical (Reference, for both datasets)
-  "rsf-clinical"
-  # Some more investigative configs (due to clinical data being so under-performing in TCGA):
-  # Model: CoxLasso, Data: Clinical + GEX only (Reference for Wissel2023/TCGA data)
-  # "coxlasso-clinical+gex",
-  # Model: RSF, Data: Clinical + GEX only (Reference for Wissel2023/TCGA data)
-  # "rsf-clinical+gex"
+  # (Baseline) Model: RSF, Data: Clinical (Reference, for both datasets)
+  "rsf-clinical",
+  # Integration Model: RSF, Data: Clinical + GEX, FS method for GEX: hEFS (9 models)
+  "rsf-clinical+gex-efs_all_feats",
+  # Integration Model: RSF, Data: GEX, FS method for GEX: hEFS (9 models)
+  "rsf-gex-efs_all_feats"
+  # Integration Model: CoxLasso, Data: Clinical + GEX, FS method for GEX: CoxLasso
+  # "coxlasso-clinical+gex-coxlasso_feats",
 )
 
 # Define datasets
@@ -76,7 +78,7 @@ dataset_ids = c("wissel2023", "osipov2024")
 # Construct a parameter grid
 grid_list = lapply(dataset_ids, function(dataset_id) {
   dataset_path = file.path("data", dataset_id)
-  assert_directory(dataset_path)
+  checkmate::assert_directory(dataset_path)
 
   # Load subsampling iterations
   subsampling = readRDS(file.path(dataset_path, "subsampling.rds"))
@@ -93,20 +95,28 @@ grid_list = lapply(dataset_ids, function(dataset_id) {
 
 grid_df = do.call(rbind, grid_list)
 
-# remove un-needed configurations
-grid_df = grid_df |>
-  # Osipov dataset doesn't have GEX data in our benchmark
-  filter(!(endsWith(model_data_config, "+gex") & dataset_id == "osipov2024")) |>
-  # {cox|rsf, clinical} and {coxlasso|rsf, clinical+gex} don't depend on the fs method
-  group_by(rsmp_id, model_data_config) |>
-  mutate(fs_method_id = ifelse(
-    model_data_config == "cox-clinical" | model_data_config == "coxlasso-clinical+gex" |
-      model_data_config == "rsf-clinical" | model_data_config == "rsf-clinical+gex",
-    NA,
-    fs_method_id
-  )) |>
-  distinct(dataset_id, fs_method_id, model_data_config, rsmp_id, .keep_all = TRUE) |>
-  ungroup()
+# filter configurations
+grid_df_filtered = grid_df |>
+  # Step 1: osipov2024 dataset doesn't have GEX data
+  filter(!(dataset_id == "osipov2024" & str_detect(model_data_config, "gex"))) |>
+  # Step 2: for configs with a 3rd part (pattern: a-b-c), ensure 3rd part == fs_method_id
+  filter({
+    third_part = str_match(model_data_config, "^[^-]+-[^-]+-(.+)$")[,2]
+    is.na(third_part) | third_part == fs_method_id
+  })
+
+# Extract the true clinical-only configs
+clinical_only = grid_df_filtered |>
+  filter(model_data_config %in% c("cox-clinical", "rsf-clinical")) |>
+  distinct(dataset_id, model_data_config, rsmp_id) |>
+  mutate(fs_method_id = NA)
+
+# Extract the rest
+rest = grid_df_filtered |>
+  filter(!model_data_config %in% c("cox-clinical", "rsf-clinical"))
+
+# Step 3: bind them
+grid_df = bind_rows(clinical_only, rest)
 
 # Parallelized function for multi-omics benchmark
 mm_bench = function(params, p) {
@@ -130,20 +140,29 @@ mm_bench = function(params, p) {
   if (data == "clinical") {
     # just take the clinical data, no standardization
     task = task_list$clinical
+  } else if (data == "gex") {
+    # Feature selection for GEX data
+    result = fs |>
+      filter(dataset_id == !!dataset_id,
+             omic_id == "gex",
+             rsmp_id == !!rsmp_id
+      ) |> pull(fs_method_id)
+    gex_features = result[[1L]]
+    all_data = task_list[["gex"]]$data(cols = c("time", "status", gex_features))
+    task = as_task_surv(x = all_data, time = "time", event = "status")
+
+    # standardize data (mean = 0, sd = 1)
+    pos = po("scale")
+    task = pos$train(list(task))[[1L]]
   } else if (data == "clinical+gex") {
-    use_fs = TRUE
-    gex_features = if (use_fs) {
-      # CoxLasso selected features for GEX data
-      result = fs |>
-        filter(dataset_id == !!dataset_id,
-               omic_id == "gex",
-               rsmp_id == !!rsmp_id
-        ) |> pull(coxlasso_feats)
-      result[[1L]]
-    } else {
-      # no feature selection for GEX data
-      task_list[["gex"]]$feature_names
-    }
+    # Feature selection for GEX data
+    result = fs |>
+      filter(dataset_id == !!dataset_id,
+             omic_id == "gex",
+             rsmp_id == !!rsmp_id
+      ) |> pull(fs_method_id)
+    gex_features = result[[1L]]
+    # gex_features = task_list[["gex"]]$feature_names # if no FS for GEX data
 
     gex_data = task_list[["gex"]]$data(cols = gex_features)
     clinical_data = task_list$clinical$data() # time, status included
@@ -221,13 +240,9 @@ mm_bench = function(params, p) {
   harrell_c = p$score(msr("surv.cindex"))
   uno_c = p$score(msr("surv.cindex", weight_meth = "G2"),
                   task = task, train_set = train_set)
-  # investigate IBS at different time points and integrated
-  brier_t12 = p$score(msr("surv.graf", times = 12, integrated = FALSE, ERV = TRUE), # BS(t = 12 months)
-                      task = task, train_set = train_set)
-  brier_t24 = p$score(msr("surv.graf", times = 24, ERV = TRUE), # IBS(t = 24 months)
-                      task = task, train_set = train_set)
-  brier_tmax24 = p$score(msr("surv.graf", t_max = 24, ERV = TRUE), # IBS(t_max = 24 months)
-                        task = task, train_set = train_set)
+  # investigate IBS (t_max = 24 months)
+  brier_tmax24 = p$score(msr("surv.graf", t_max = 24, ERV = TRUE),
+                         task = task, train_set = train_set)
 
   # Return result as a tibble
   tibble(
@@ -235,14 +250,12 @@ mm_bench = function(params, p) {
     fs_method_id = fs_method_id,
     rsmp_id = rsmp_id,
     model_data_config = model_data_config,
-    # include the train task here?
+    # include the train task here if needed
     # task = task$filter(rows = train_set),
     task_nfeats = task$n_features, # how many multi-omics features were used
     task_feats = list(task$feature_names),
     harrell_c = harrell_c,
     uno_c = uno_c,
-    brier_t12 = brier_t12,
-    brier_t24 = brier_t24,
     brier_tmax24 = brier_tmax24
   )
 }
@@ -265,4 +278,4 @@ execute_bench = function() {
 result = execute_bench()
 
 # Save results
-saveRDS(result, file = "bench/result.rds")
+saveRDS(result, file = "bench/result_new.rds")
