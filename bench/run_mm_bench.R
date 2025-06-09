@@ -242,7 +242,7 @@ mm_bench = function(params, p) {
     blocks = get_block_indices(feature_names = task$feature_names,
                                omic_prefixes = omic_prefixes)
     learner = lrn("surv.blockforest", blocks = blocks, splitrule = "logrank",
-                  num.trees = 2000, nsets = 500, num.trees.pre = 500, num.threads = 8)
+                  num.trees = 2000, nsets = 300, num.trees.pre = 500, num.threads = 8)
   } else {
     stopf("Model %s not implemented in this benchmark", model)
   }
