@@ -1,6 +1,6 @@
 library(mlr3)
 library(mlr3extralearners)
-library(blockForest)
+library(blockForest) # 0.2.6 version
 library(R6)
 library(paradox)
 

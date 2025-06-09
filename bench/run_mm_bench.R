@@ -73,7 +73,7 @@ model_data_configs = c(
   #"coxlasso-clinical+gex-coxlasso_feats",
   # Integration Model: BlockForest, Data: ALL
   "blockforest-all",
-  "blockforest-clinical+gex"
+  "blockforest-clinical+gex-efs_all_feats"
 )
 
 # Define datasets
@@ -121,6 +121,8 @@ rest = grid_df_filtered |>
 
 if (nrow(clinical_only) > 0) {
   grid_df = bind_rows(clinical_only, rest)
+} else {
+  grid_df = rest
 }
 
 # how many configs to run?
