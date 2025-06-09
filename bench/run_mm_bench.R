@@ -37,9 +37,10 @@ suppressPackageStartupMessages({
   library(future.apply)
   library(progressr)
 })
+source("bench/blockForest.R")
 
 # Set parallel execution
-plan("multicore", workers = 13)
+plan("multicore", workers = 10)
 
 # Enable progress bars
 options(progressr.enable = TRUE)
@@ -54,22 +55,25 @@ fs_method_ids = colnames(fs)[endsWith(colnames(fs), "_feats")]
 #' Pattern: a-b-c, where:
 #' `a`: integration model for late fusion (or baseline)
 #' `b`: data type(s)
-#' `c`: FS method
+#' `c`: FS method (if absent all FS methods are considered)
 model_data_configs = c(
   # Integration Model: CoxLasso, Data: ALL => Clinical + OMICS
-  "coxlasso-all",
+  #"coxlasso-all",
   # Integration Model: RSF, Data: ALL => Clinical + OMICS
-  "rsf-all",
+  #"rsf-all",
   # (Baseline) Model: CoxPH, Data: Clinical (Reference, for both datasets)
-  "cox-clinical",
+  #"cox-clinical",
   # (Baseline) Model: RSF, Data: Clinical (Reference, for both datasets)
-  "rsf-clinical",
+  #"rsf-clinical",
   # Integration Model: RSF, Data: Clinical + GEX, FS method for GEX: hEFS (9 models)
-  "rsf-clinical+gex-efs_all_feats",
+  #"rsf-clinical+gex-efs_all_feats",
   # Integration Model: RSF, Data: GEX, FS method for GEX: hEFS (9 models)
-  "rsf-gex-efs_all_feats"
+  #"rsf-gex-efs_all_feats"#,
   # Integration Model: CoxLasso, Data: Clinical + GEX, FS method for GEX: CoxLasso
-  # "coxlasso-clinical+gex-coxlasso_feats",
+  #"coxlasso-clinical+gex-coxlasso_feats",
+  # Integration Model: BlockForest, Data: ALL
+  "blockforest-all",
+  "blockforest-clinical+gex"
 )
 
 # Define datasets
@@ -105,7 +109,7 @@ grid_df_filtered = grid_df |>
     is.na(third_part) | third_part == fs_method_id
   })
 
-# Extract the true clinical-only configs
+# Clinical-only config DO NOT do any feature selection
 clinical_only = grid_df_filtered |>
   filter(model_data_config %in% c("cox-clinical", "rsf-clinical")) |>
   distinct(dataset_id, model_data_config, rsmp_id) |>
@@ -115,8 +119,12 @@ clinical_only = grid_df_filtered |>
 rest = grid_df_filtered |>
   filter(!model_data_config %in% c("cox-clinical", "rsf-clinical"))
 
-# Step 3: bind them
-grid_df = bind_rows(clinical_only, rest)
+if (nrow(clinical_only) > 0) {
+  grid_df = bind_rows(clinical_only, rest)
+}
+
+# how many configs to run?
+nrow(grid_df)
 
 # Parallelized function for multi-omics benchmark
 mm_bench = function(params, p) {
@@ -176,7 +184,7 @@ mm_bench = function(params, p) {
     # standardize data (mean = 0, sd = 1)
     pos = po("scale")
     task = pos$train(list(task))[[1L]]
-  } else {
+  } else { # `all`
     # combine all omics to a combined multi-omics dataset
     all_data = map_dtc(names(task_list), function(omic_id) {
       # investigate: remove mutation omic (default FALSE: DON'T DO THIS)
@@ -226,6 +234,12 @@ mm_bench = function(params, p) {
   } else if (model == "cox") {
     # Simple Cox PH
     learner = lrn("surv.coxph")
+  } else if (model == "blockforest") {
+    omic_prefixes = setdiff(names(task_list), "clinical")
+    blocks = get_block_indices(feature_names = task$feature_names,
+                               omic_prefixes = omic_prefixes)
+    learner = lrn("surv.blockforest", blocks = blocks, splitrule = "extratrees",
+                  num.trees = 2000, nsets = 300, num.trees.pre = 1500, num.threads = 4)
   } else {
     stopf("Model %s not implemented in this benchmark", model)
   }
@@ -278,4 +292,5 @@ execute_bench = function() {
 result = execute_bench()
 
 # Save results
-saveRDS(result, file = "bench/result_new.rds")
+saveRDS(result, file = "bench/result_bf.rds")
+
