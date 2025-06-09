@@ -40,7 +40,7 @@ suppressPackageStartupMessages({
 source("bench/blockForest.R")
 
 # Set parallel execution
-plan("multicore", workers = 10)
+plan("multicore", workers = 50)
 
 # Enable progress bars
 options(progressr.enable = TRUE)
@@ -58,21 +58,22 @@ fs_method_ids = colnames(fs)[endsWith(colnames(fs), "_feats")]
 #' `c`: FS method (if absent all FS methods are considered)
 model_data_configs = c(
   # Integration Model: CoxLasso, Data: ALL => Clinical + OMICS
-  #"coxlasso-all",
+  "coxlasso-all",
   # Integration Model: RSF, Data: ALL => Clinical + OMICS
-  #"rsf-all",
+  "rsf-all",
   # (Baseline) Model: CoxPH, Data: Clinical (Reference, for both datasets)
-  #"cox-clinical",
+  "cox-clinical",
   # (Baseline) Model: RSF, Data: Clinical (Reference, for both datasets)
-  #"rsf-clinical",
+  "rsf-clinical",
   # Integration Model: RSF, Data: Clinical + GEX, FS method for GEX: hEFS (9 models)
-  #"rsf-clinical+gex-efs_all_feats",
+  "rsf-clinical+gex-efs_all_feats",
   # Integration Model: RSF, Data: GEX, FS method for GEX: hEFS (9 models)
-  #"rsf-gex-efs_all_feats"#,
+  "rsf-gex-efs_all_feats",
   # Integration Model: CoxLasso, Data: Clinical + GEX, FS method for GEX: CoxLasso
-  #"coxlasso-clinical+gex-coxlasso_feats",
+  "coxlasso-clinical+gex-coxlasso_feats",
   # Integration Model: BlockForest, Data: ALL
   "blockforest-all",
+  # Integration Model: BlockForest, Data: Clinical + GEX, FS method for GEX: CoxLasso
   "blockforest-clinical+gex-efs_all_feats"
 )
 
@@ -240,8 +241,8 @@ mm_bench = function(params, p) {
     omic_prefixes = setdiff(names(task_list), "clinical")
     blocks = get_block_indices(feature_names = task$feature_names,
                                omic_prefixes = omic_prefixes)
-    learner = lrn("surv.blockforest", blocks = blocks, splitrule = "extratrees",
-                  num.trees = 2000, nsets = 300, num.trees.pre = 1500, num.threads = 4)
+    learner = lrn("surv.blockforest", blocks = blocks, splitrule = "logrank",
+                  num.trees = 2000, nsets = 500, num.trees.pre = 500, num.threads = 8)
   } else {
     stopf("Model %s not implemented in this benchmark", model)
   }
