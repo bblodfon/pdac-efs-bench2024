@@ -70,7 +70,7 @@ model_data_configs = c(
   # Integration Model: RSF, Data: GEX, FS method for GEX: hEFS (9 models)
   "rsf-gex-efs_all_feats",
   # Integration Model: CoxLasso, Data: Clinical + GEX, FS method for GEX: CoxLasso
-  "coxlasso-clinical+gex-coxlasso_feats",
+  #"coxlasso-clinical+gex-coxlasso_feats",
   # Integration Model: BlockForest, Data: ALL
   "blockforest-all",
   # Integration Model: BlockForest, Data: Clinical + GEX, FS method for GEX: CoxLasso
