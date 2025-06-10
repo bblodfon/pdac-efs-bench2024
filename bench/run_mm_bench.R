@@ -12,7 +12,7 @@
 #'    to form multi-omics datasets.
 #'    - These datasets are then used to train a model on the training set and
 #'    predict on the test set.
-#'    - Several model options are available (Coxlasso, RSF, Cox).
+#'    - Several model options are available (Coxlasso, RSF, CoxPH, BlockForest).
 #'
 #' Execute: `Rscript bench/run_mm_bench.R` (from project root)
 
@@ -55,7 +55,7 @@ fs_method_ids = colnames(fs)[endsWith(colnames(fs), "_feats")]
 #' Pattern: a-b-c, where:
 #' `a`: integration model for late fusion (or baseline)
 #' `b`: data type(s)
-#' `c`: FS method (if absent all FS methods are considered)
+#' `c`: FS method (if absent or `all` => all FS methods are considered)
 model_data_configs = c(
   # Integration Model: CoxLasso, Data: ALL => Clinical + OMICS
   "coxlasso-all",
@@ -242,7 +242,7 @@ mm_bench = function(params, p) {
     blocks = get_block_indices(feature_names = task$feature_names,
                                omic_prefixes = omic_prefixes)
     learner = lrn("surv.blockforest", blocks = blocks, splitrule = "logrank",
-                  num.trees = 2000, nsets = 300, num.trees.pre = 500, num.threads = 8)
+                  num.trees = 2000, nsets = 300, num.trees.pre = 1000, num.threads = 8)
   } else {
     stopf("Model %s not implemented in this benchmark", model)
   }
