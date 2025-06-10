@@ -52,7 +52,7 @@ Output: [`bench/fs.rds`](https://github.com/bblodfon/pdac-efs-bench2024/blob/mai
 ### Multi-omics Integration & Benchmarking
 
 Script: [`bench/run_mm_bench.R`](https://github.com/bblodfon/pdac-efs-bench2024/blob/main/bench/run_mm_bench.R): Combines selected features across omics (via late integration/fusion) per subsampling iteration, then trains and evaluates survival models on training/test splits.
-Available models are Cox Proportional Hazards, Cox Lasso and Random Survival Forests (RSF).
+Available models are Cox Proportional Hazards, Cox Lasso, Random Survival Forests and BlockForest.
 
 Output: [`bench/result.rds`](https://github.com/bblodfon/pdac-efs-bench2024/blob/main/bench/result.rds) - a table with:
 
