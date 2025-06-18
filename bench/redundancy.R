@@ -152,14 +152,15 @@ with_progress({
 
   fs_red = future.apply::future_lapply(seq_len(total_rows), function(i) {
     data = fs_long[i, ]
-    p(sprintf("Dataset: %s, Omic: %s, Subsampling Iter: %i, FS method: %s",
-              dataset_id, omic_id, rsmp_id, fs_method_id))
 
     dataset_id = data$dataset_id
     omic_id = data$omic_id
     rsmp_id = data$rsmp_id
     fs_method_id = data$fs_method_id
     selected_features = data$feats[[1]]
+
+    p(sprintf("Dataset: %s, Omic: %s, Subsampling Iter: %i, FS method: %s",
+              dataset_id, omic_id, rsmp_id, fs_method_id))
 
     # get task
     task = task_lists[[dataset_id]][[omic_id]]
@@ -168,7 +169,7 @@ with_progress({
     train_set = subsamplings[[dataset_id]]$train_set(i = rsmp_id)
 
     # get redundancy scores
-    r = compute_redundancy(task, train_set, selected_features, N = 10)
+    r = compute_redundancy(task, train_set, selected_features)
 
     bind_cols(data, r) |> select(!feats)
   }, future.seed = TRUE) |> bind_rows()
