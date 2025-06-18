@@ -23,23 +23,23 @@ options(progressr.enable = TRUE)
 handlers(on_missing = "ignore", global = TRUE)
 handlers("progress")
 
-compute_redundancy_per_method = function(row, task_list, omic_id, train_set, method) {
+#' `alpha`: FDR threshold for SRP
+#' `N`: number of random feature subsets to consider to correct for chance, i.e.
+#' `N` random feature sets of the same size as the selected features are generated
+compute_redundancy_per_method = function(row, task_list, omic_id, train_set, method,
+                                         alpha = 0.05, N = 1000) {
   selected_features = row[[method]][[1]]
+  p = length(selected_features)
+  task = task_list[[omic_id]]
 
-  if (length(selected_features) == 1) {
+  if (p <= 1) {
     redundancy = c(
-      rrate_pearson = NA,
-      srp5_pearson = NA,
-      srp1_pearson = NA,
-      rrate_spearman = NA,
-      srp5_spearman = NA,
-      srp1_spearman = NA,
-      rrate_xicor = NA,
-      srp5_xicor = NA,
-      srp1_xicor = NA
+      rrate_pearson = NA, srp_pearson = NA,
+      rrate_spearman = NA, srp_spearman = NA,
+      rrate_xicor = NA, srp_xicor = NA, adj_xicor = NA
     )
   } else {
-    data = task_list[[omic_id]]$data(rows = train_set, cols = selected_features)
+    data = task$data(rows = train_set, cols = selected_features)
 
     combs = utils::combn(ncol(data), 2) # unique pairs only
     n_pairs = ncol(combs)
@@ -63,31 +63,46 @@ compute_redundancy_per_method = function(row, task_list, omic_id, train_set, met
       spearman_coeff[i] = test$estimate
       spearman_pvalues[i] = test$p.value
 
-      xc = list(
-        xicor(x, y, pvalue = TRUE),
-        xicor(y, x, pvalue = TRUE)
-      )
-
-      # choose the max value of xicor, see (Chatterjee 2021) - Remark No. 1
+      # choose the max value of xicor, since it's not a symmetric measure of dependence
+      # see (Chatterjee 2021) - Remark No. 1
+      xc = list(xicor(x, y, pvalue = TRUE), xicor(y, x, pvalue = TRUE))
       indx = which.max(map_dbl(xc, "xi"))
       xicor_coeff[i] = xc[[indx]]$xi
       xicor_pvalues[i] = xc[[indx]]$pval
     }
 
+    # Estimate null distribution
+    all_data = task$data(rows = train_set)
+    xi_null = numeric(N)
+    for (i in seq_len(N)) {
+      samp = sample(ncol(all_data), p)
+      combs_null = utils::combn(samp, 2)
+      xi_vals = numeric(ncol(combs_null))
+      for (j in seq_along(xi_vals)) {
+        x = all_data[[combs_null[1, j]]]
+        y = all_data[[combs_null[2, j]]]
+        xi_vals[j] = max(xicor(x, y), xicor(y, x))
+      }
+      xi_null[i] = mean(abs(xi_vals))
+    }
+
+    xi_expected = mean(xi_null)
+    xi_max = max(xi_null)
+    xi_obs = mean(abs(xicor_coeff))
+    adj_xi = (xi_obs - xi_expected) / (xi_max - xi_expected)
+
     redundancy = c(
       #' `rrate` as in "redundancy rate"
       #' Pearson
       rrate_pearson = mean(abs(pearson_coeff)),
-      srp5_pearson = sum(p.adjust(pearson_pvalues, "fdr") < 0.05) / n_pairs,
-      srp1_pearson = sum(p.adjust(pearson_pvalues, "fdr") < 0.01) / n_pairs,
+      srp_pearson = sum(p.adjust(pearson_pvalues, "fdr") < alpha) / n_pairs,
       #' Spearman
       rrate_spearman = mean(abs(spearman_coeff)),
-      srp5_spearman = sum(p.adjust(spearman_pvalues, "fdr") < 0.05) / n_pairs,
-      srp1_spearman = sum(p.adjust(spearman_pvalues, "fdr") < 0.01) / n_pairs,
+      srp_spearman = sum(p.adjust(spearman_pvalues, "fdr") < alpha) / n_pairs,
       #' Xicor
-      rrate_xicor = mean(abs(xicor_coeff)),
-      srp5_xicor = sum(p.adjust(xicor_pvalues, "fdr") < 0.05) / n_pairs,
-      srp1_xicor = sum(p.adjust(xicor_pvalues, "fdr") < 0.01) / n_pairs
+      rrate_xicor = xi_obs,
+      srp_xicor = sum(p.adjust(xicor_pvalues, "fdr") < alpha) / n_pairs,
+      adj_xicor = adj_xi
     )
   }
 
@@ -142,7 +157,8 @@ with_progress({
         row         = row,
         task_list   = task_list,
         subsampling = subsampling,
-        methods     = methods)
+        methods     = methods
+      )
 
       p(sprintf("%s row %d/%d", dset, i, nrow(fs_dset)))
       as.data.frame(as.list(r))
