@@ -31,6 +31,7 @@ handlers("progress")
 #' `N`: number of random feature subsets to consider to correct for chance, i.e.
 #' `N` random feature sets of the same size as the selected features are generated
 compute_redundancy = function(task, train_set, selected_features, alpha = 0.05, N = 1000) {
+  stopifnot(N >= 10)
   p = length(selected_features)
 
   if (p <= 1) {
@@ -82,9 +83,11 @@ compute_redundancy = function(task, train_set, selected_features, alpha = 0.05, 
       for (j in seq_along(xi_vals)) {
         x = all_data[[combs_null[1, j]]]
         y = all_data[[combs_null[2, j]]]
-        xi_vals[j] = max(xicor(x, y), xicor(y, x))
+        xi_scores = c(xicor(x, y), xicor(y, x))
+        xi_scores = xi_scores[is.finite(xi_scores)] # remove Inf values
+        xi_vals[j] = max(c(xi_scores, -Inf)) # just in case both scores are Inf and were removed!
       }
-      xi_null[i] = mean(abs(xi_vals))
+      xi_null[i] = mean(abs(xi_vals[is.finite(xi_vals)])) # only non-Inf values
     }
 
     xi_expected = mean(xi_null)
