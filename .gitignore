@@ -8,6 +8,7 @@ sysconfig
 # exclude original files
 data/wissel2023/PAAD_data_preprocessed.csv
 data/osipov2024/43018_2023_697_MOESM3_ESM*
+data/cao2021/PDAC_LinkedOmics_Data/*
 efs/*/*
 bench/wissel2023/*
 bench/osipov2024/*
