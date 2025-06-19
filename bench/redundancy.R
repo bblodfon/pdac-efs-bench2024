@@ -162,7 +162,7 @@ with_progress({
     fs_method_id = data$fs_method_id
     selected_features = data$feats[[1]]
 
-    p(sprintf("Dataset: %s, Omic: %s, Subsampling Iter: %i, FS method: %s",
+    p(sprintf("Dataset: %s, Omic: %s, SubSmp iter: %i, FS method: %s",
               dataset_id, omic_id, rsmp_id, fs_method_id))
 
     # get task
