@@ -56,7 +56,8 @@ clinical = clinical |>
   mutate(histology_behavior = if_else(histology_behavior == 81403, 0, 1)) |>
   # 3 classes (0,1,2)
   rename(grade = clinical_Grade_Mixed_ord) |>
-  # 5 classes => 51 (0), 23 (>0)
+  # 5 classes => 51 (0 => Head?), 23 (>0) - this is most probably the primary tumor site
+  # i.e. body, head, tail, and combinations of these
   rename(clinical_site = `clinical_Site_-_Primary_ICD-O-3_ord`) |>
   # collapse to 2 classes
   mutate(clinical_site =  if_else(clinical_site == 0, 0, 1)) |>
