@@ -502,17 +502,12 @@ res = readRDS("bench/fs_red.rds")
 
 res_long = res |>
   pivot_longer(
-    cols = -c(dataset_id, omic_id, rsmp_id),
-    names_to = "tmp",
+    cols = c(rr_pearson, srp_pearson, rr_spearman, srp_spearman, rr_xicor, srp_xicor, arr_xicor),
+    names_to = c("type", "metric"),
+    names_pattern = "(rr|srp|arr)_(pearson|spearman|xicor)",
     values_to = "value"
   ) |>
-  extract(
-    tmp,
-    into = c("method", "type", "metric"),
-    regex = "(efs_all|efs_coxlasso|efs_rsf|coxlasso)_(rrate|srp5|srp1)_(pearson|spearman|xicor)",
-    remove = FALSE
-  ) |>
-  select(-tmp) |>
+  rename(method = fs_method_id) |>
   mutate(method = case_when(
     method == "coxlasso" ~ "CoxLasso",
     method == "efs_rsf" ~ "hEFS (3 RSFs)",
@@ -531,42 +526,9 @@ method_lvls = c("CoxLasso", "EFS (CoxLasso)", "hEFS (3 RSFs)", "hEFS (9 models)"
 
 ## Redundancy Rate ----
 p_rrate_all = res_long |>
-  filter(type == "rrate", !is.na(value)) |> # all metrics
+  filter(type == "rr", !is.na(value)) |> # all metrics
   mutate(method = factor(method, levels = method_lvls)) |>
   # Reorder method based on overall median redundancy
-  #mutate(method = fct_reorder(method, value, .fun = median, .na_rm = TRUE, .desc = FALSE)) |>
-  ggplot(aes(x = omic_id, y = value, fill = method)) +
-  geom_boxplot(outlier.shape = NA, alpha = 0.7,
-               position = position_dodge2(preserve = "single")) +
-  geom_jitter(aes(color = method), show.legend = FALSE,
-              position = position_jitterdodge(jitter.width = 0.2, dodge.width = 0.75),
-              alpha = 0.7, size = 0.1) +
-  scale_fill_manual(values = custom_colors) +
-  scale_color_manual(values = custom_colors) +
-  theme_minimal() +
-  facet_grid(
-    metric ~ dataset_id,
-    scales = "free_x",
-    labeller = labeller(
-      metric = as_labeller(metric_labels),
-      dataset_id = as_labeller(dataset_labels))
-  ) +
-  labs(
-    x = "Omics",
-    y = "Redundancy Rate",
-    fill = "FS Method",
-    title = "Redundancy across Omic Types and Metrics"
-  ) +
-  theme(
-    axis.text.x = element_text(angle = 35, hjust = 1),
-    text = element_text(family = "Arial")
-  )
-ggsave("bench/img/redundancy_rate_all_metrics.png", plot = p_rrate_all,
-       width = 7, height = 5, dpi = 600, bg = "white")
-
-p_rrate_xicor = res_long |>
-  filter(type == "rrate", metric == "xicor", !is.na(value)) |>
-  mutate(method = factor(method, levels = method_lvls)) |>
   #mutate(method = fct_reorder(method, value, .fun = median, .na_rm = TRUE, .desc = FALSE)) |>
   ggplot(aes(x = omic_id, y = value, fill = method)) +
   geom_boxplot(outlier.shape = NA, alpha = 0.7,
@@ -588,28 +550,49 @@ p_rrate_xicor = res_long |>
     x = "Omics",
     y = "Redundancy Rate",
     fill = "FS Method",
-    title = "Redundancy across Omic Types"
+    title = "Redundancy across Omic Types and Metrics"
   ) +
   theme(
     axis.text.x = element_text(angle = 35, hjust = 1),
     text = element_text(family = "Arial")
   )
+ggsave("bench/img/redundancy_rate_all_metrics.png", plot = p_rrate_all,
+       width = 7, height = 5, dpi = 600, bg = "white")
 
-p_rrate_xicor2 = ggdraw(p_rrate_xicor) +
-  draw_text("Lower is better", x = 0.17, y = 0.6, angle = 90, size = 10, hjust = 0) +
-  draw_line(
-    x = c(0.15, 0.15),
-    y = c(0.8, 0.55),
-    arrow = arrow(length = unit(0.03, "npc")),
-    colour = "black",
-    size = 0.8
+p_rrate_xicor = res_long |>
+  filter(type == "rr", metric == "xicor", !is.na(value)) |>
+  mutate(method = factor(method, levels = method_lvls)) |>
+  ggplot(aes(x = omic_id, y = value, fill = method)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.7,
+               position = position_dodge2(preserve = "single")) +
+  geom_jitter(aes(color = method), show.legend = FALSE,
+              position = position_jitterdodge(jitter.width = 0.2, dodge.width = 0.75),
+              alpha = 0.7, size = 0.1) +
+  scale_fill_manual(values = custom_colors) +
+  scale_color_manual(values = custom_colors) +
+  theme_minimal(base_size = 14) +
+  facet_grid(
+    ~ dataset_id,
+    scales = "free_x",
+    labeller = labeller(dataset_id = as_labeller(dataset_labels))
+  ) +
+  labs(
+    x = "Omics",
+    y = "Redundancy Rate (ξ Correlation)",
+    fill = "FS Method",
+    title = "Redundancy across Omic Types"
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 35, hjust = 1),
+    text = element_text(family = "Arial"),
+    legend.margin = margin(l = -20)
   )
-ggsave("bench/img/redundancy_rate_xicor.png", plot = p_rrate_xicor2,
+ggsave("bench/img/redundancy_rate_xicor.png", plot = p_rrate_xicor,
        width = 7, height = 5, dpi = 600, bg = "white")
 
 ## Significant Redundancy Proportion ----
 p_srp_all = res_long |>
-  filter(type == "srp5", !is.na(value)) |> # all metrics
+  filter(type == "srp", !is.na(value)) |> # all metrics
   mutate(method = factor(method, levels = method_lvls)) |>
   #mutate(method = fct_reorder(method, value, .fun = median, .na_rm = TRUE, .desc = FALSE)) |>
   ggplot(aes(x = omic_id, y = value, fill = method)) +
@@ -639,12 +622,11 @@ p_srp_all = res_long |>
     text = element_text(family = "Arial")
   )
 ggsave("bench/img/srp5_all_metrics.png", plot = p_srp_all, width = 7, height = 5,
-       dpi = 600, bg = "white")
+       dpi = 600, bg = "white") # srp5 => due to `alpha = 0.05`
 
 p_srp5_xicor = res_long |>
-  filter(type == "srp5", metric == "xicor", !is.na(value)) |>
+  filter(type == "srp", metric == "xicor", !is.na(value)) |>
   mutate(method = factor(method, levels = method_lvls)) |>
-  #mutate(method = fct_reorder(method, value, .fun = median, .na_rm = TRUE, .desc = TRUE)) |>
   ggplot(aes(x = omic_id, y = value, fill = method)) +
   geom_boxplot(outlier.shape = NA, alpha = 0.7,
                position = position_dodge2(preserve = "single")) +
@@ -655,15 +637,13 @@ p_srp5_xicor = res_long |>
   scale_color_manual(values = custom_colors) +
   theme_minimal(base_size = 14) +
   facet_grid(
-    metric ~ dataset_id,
+    ~ dataset_id,
     scales = "free_x",
-    labeller = labeller(
-      metric = as_labeller(metric_labels),
-      dataset_id = as_labeller(dataset_labels))
+    labeller = labeller(dataset_id = as_labeller(dataset_labels))
   ) +
   labs(
     x = "Omics",
-    y = "Significant Redundancy Proportion",
+    y = "Significant Redundancy Proportion\n(ξ Correlation)",
     fill = "FS Method",
     title = "Redundancy across Omic Types"
   ) +
@@ -671,15 +651,73 @@ p_srp5_xicor = res_long |>
     axis.text.x = element_text(angle = 35, hjust = 1),
     text = element_text(family = "Arial")
   )
-
-p_srp5_xicor2 = ggdraw(p_srp5_xicor) +
-  draw_text("Lower is better", x = 0.17, y = 0.6, angle = 90, size = 10, hjust = 0) +
-  draw_line(
-    x = c(0.15, 0.15),
-    y = c(0.8, 0.55),
-    arrow = arrow(length = unit(0.03, "npc")),
-    colour = "black",
-    size = 0.8
-  )
-ggsave("bench/img/srp5_xicor.png", plot = p_srp5_xicor2, width = 7, height = 5,
+ggsave("bench/img/srp5_xicor.png", plot = p_srp5_xicor, width = 7, height = 5,
        dpi = 600, bg = "white")
+
+## Adjusted Redundancy Rate ----
+
+# there are NA's in all scores due to feature sizes of length 1, but the following
+# are extra and are due to null distribution/expected score being `NaN`
+res |> filter(!is.na(rr_pearson), is.na(arr_xicor))
+
+res_long1 = res_long |>
+  filter(type == "arr") |> # only "xicor" metric here
+  filter(!is.na(value), !is.infinite(value)) |>
+  mutate(method = factor(method, levels = method_lvls))
+
+p_arr = res_long1 |>
+  ggplot(aes(x = omic_id, y = value, fill = method)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.7,
+               position = position_dodge2(preserve = "single")) +
+  geom_jitter(aes(color = method), show.legend = FALSE,
+              position = position_jitterdodge(jitter.width = 0.2, dodge.width = 0.75),
+              alpha = 0.7, size = 0.1) +
+  scale_fill_manual(values = custom_colors) +
+  scale_color_manual(values = custom_colors) +
+  theme_minimal(base_size = 14) +
+  facet_grid(
+    ~ dataset_id,
+    scales = "free_x",
+    labeller = labeller(dataset_id = as_labeller(dataset_labels))
+  ) +
+  labs(
+    x = "Omics",
+    y = "Adjusted Redundancy Rate",
+    fill = "FS Method",
+    title = "Redundancy across Omic Types and Metrics"
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 35, hjust = 1),
+    text = element_text(family = "Arial")
+  )
+ggsave("bench/img/redundancy_adjusted_xicor.png", plot = p_arr, width = 7, height = 5,
+       dpi = 600, bg = "white")
+
+p_arr2 = res_long1 |>
+  filter(!omic_id == "mutation") |> # due to very different scale of values
+  ggplot(aes(x = omic_id, y = value, fill = method)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.7,
+               position = position_dodge2(preserve = "single")) +
+  geom_jitter(aes(color = method), show.legend = FALSE,
+              position = position_jitterdodge(jitter.width = 0.2, dodge.width = 0.75),
+              alpha = 0.7, size = 0.1) +
+  scale_fill_manual(values = custom_colors) +
+  scale_color_manual(values = custom_colors) +
+  theme_minimal(base_size = 14) +
+  facet_grid(
+    ~ dataset_id,
+    scales = "free_x",
+    labeller = labeller(dataset_id = as_labeller(dataset_labels))
+  ) +
+  labs(
+    x = "Omics",
+    y = "Adjusted Redundancy Rate",
+    fill = "FS Method",
+    title = "Redundancy across Omic Types and Metrics"
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 35, hjust = 1),
+    text = element_text(family = "Arial")
+  )
+ggsave("bench/img/redundancy_adjusted_xicor_no_mut.png", plot = p_arr2,
+       width = 7, height = 5, dpi = 600, bg = "white")
