@@ -502,7 +502,7 @@ res = readRDS("bench/fs_red.rds")
 
 res_long = res |>
   pivot_longer(
-    cols = c(rr_pearson, srp_pearson, rr_spearman, srp_spearman, rr_xicor, srp_xicor, arr_xicor),
+    cols = c(rr_pearson, srp_pearson, rr_spearman, srp_spearman, rr_xicor, srp_xicor), # arr_xicor
     names_to = c("type", "metric"),
     names_pattern = "(rr|srp|arr)_(pearson|spearman|xicor)",
     values_to = "value"
@@ -656,6 +656,7 @@ ggsave("bench/img/srp5_xicor.png", plot = p_srp5_xicor, width = 7, height = 5,
 
 ## Adjusted Redundancy Rate ----
 
+if (FALSE) {
 # there are NA's in all scores due to feature sizes of length 1, but the following
 # are extra and are due to null distribution/expected score being `NaN`
 res |> filter(!is.na(rr_pearson), is.na(arr_xicor))
@@ -721,3 +722,4 @@ p_arr2 = res_long1 |>
   )
 ggsave("bench/img/redundancy_adjusted_xicor_no_mut.png", plot = p_arr2,
        width = 7, height = 5, dpi = 600, bg = "white")
+}

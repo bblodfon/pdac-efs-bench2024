@@ -28,9 +28,12 @@ handlers("progress")
 
 #' Helper function to compute redundancy scores in a given `mlr3` task
 #' `alpha`: FDR threshold for SRP
+#' `correct_for_chance`: whether to quantify how much the observed RR differs
+#' from what would be expected under random feature selection (same feature set size)
 #' `N`: number of random feature subsets to consider to correct for chance, i.e.
 #' `N` random feature sets of the same size as the selected features are generated
-compute_redundancy = function(task, train_set, selected_features, alpha = 0.05, N = 1000) {
+compute_redundancy = function(task, train_set, selected_features, alpha = 0.05,
+                              correct_for_chance = FALSE, N = 1000) {
   stopifnot(N >= 10)
   p = length(selected_features)
 
@@ -38,7 +41,8 @@ compute_redundancy = function(task, train_set, selected_features, alpha = 0.05, 
     redundancy = tibble(
       rr_pearson = NA, srp_pearson = NA,
       rr_spearman = NA, srp_spearman = NA,
-      rr_xicor = NA, srp_xicor = NA, arr_xicor = NA
+      rr_xicor = NA, srp_xicor = NA,
+      arr_xicor = base::switch(correct_for_chance, NA)
     )
   } else {
     data = task$data(rows = train_set, cols = selected_features)
@@ -73,27 +77,30 @@ compute_redundancy = function(task, train_set, selected_features, alpha = 0.05, 
       xicor_pvalues[i] = xc[[indx]]$pval
     }
 
-    # Estimate null distribution
-    all_data = task$data(rows = train_set)
-    xi_null = numeric(N)
-    for (i in seq_len(N)) {
-      samp = sample(ncol(all_data), size = p)
-      combs_null = utils::combn(samp, 2)
-      xi_vals = numeric(ncol(combs_null))
-      for (j in seq_along(xi_vals)) {
-        x = all_data[[combs_null[1, j]]]
-        y = all_data[[combs_null[2, j]]]
-        xi_scores = c(xicor(x, y), xicor(y, x))
-        xi_scores = xi_scores[is.finite(xi_scores)] # remove Inf values
-        xi_vals[j] = max(c(xi_scores, -Inf)) # just in case both scores are Inf and were removed!
-      }
-      xi_null[i] = mean(abs(xi_vals[is.finite(xi_vals)])) # only non-Inf values
-    }
-
-    xi_expected = mean(xi_null)
-    xi_max = max(xi_null)
     xi_obs = mean(abs(xicor_coeff))
-    adj_xi = (xi_obs - xi_expected) / (xi_max - xi_expected)
+
+    if (correct_for_chance) {
+      # Estimate null distribution
+      all_data = task$data(rows = train_set)
+      xi_null = numeric(N)
+      for (i in seq_len(N)) {
+        samp = sample(ncol(all_data), size = p)
+        combs_null = utils::combn(samp, 2)
+        xi_vals = numeric(ncol(combs_null))
+        for (j in seq_along(xi_vals)) {
+          x = all_data[[combs_null[1, j]]]
+          y = all_data[[combs_null[2, j]]]
+          xi_scores = c(xicor(x, y), xicor(y, x))
+          xi_scores = xi_scores[is.finite(xi_scores)] # remove Inf values
+          xi_vals[j] = max(c(xi_scores, -Inf)) # just in case both scores are Inf and were removed!
+        }
+        xi_null[i] = mean(abs(xi_vals[is.finite(xi_vals)])) # only non-Inf values
+      }
+
+      xi_expected = mean(xi_null)
+      xi_max = max(xi_null)
+      adj_xi = (xi_obs - xi_expected) / (xi_max - xi_expected)
+    }
 
     redundancy = tibble(
       #' `rr` as in "redundancy rate"
@@ -110,7 +117,7 @@ compute_redundancy = function(task, train_set, selected_features, alpha = 0.05, 
       rr_xicor = xi_obs,
       srp_xicor = sum(p.adjust(xicor_pvalues, "fdr") < alpha) / n_pairs,
       #' Chance-corrected Xicor
-      arr_xicor = adj_xi
+      arr_xicor = base::switch(correct_for_chance, adj_xi)
     )
   }
 
@@ -147,7 +154,7 @@ names(subsamplings) = dataset_ids
 set.seed(42)
 
 # parallelization
-plan(multicore, workers = 100)
+plan(multicore, workers = 15) # change to e.g. 100 if `correct_for_chance = TRUE`
 
 with_progress({
   total_rows = nrow(fs_long)
