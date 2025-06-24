@@ -2,7 +2,7 @@
 #'
 #' This script performs feature selection per omic and per subsampling iteration
 #' (100 in total) - either using CoxLasso or the ensemble feature selection (efs)
-#' method on two PDAC datasets.
+#' method on three PDAC datasets.
 #'
 #' The efs, being computationally intensive, has been executed in a separate
 #' `run_efs.sh` script, so we just load the result object here and decide on the

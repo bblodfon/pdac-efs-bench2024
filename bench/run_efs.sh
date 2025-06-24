@@ -9,7 +9,7 @@ DATA_DIR="data"
 EFS_SCRIPT="Rscript bench/efs.R"
 
 # Define dataset IDs manually or leave empty to process all in data/
-DATASET_IDS=()  # Example: ("wissel2023") or ("osipov2024") or leave empty to process all
+DATASET_IDS=()  # Example: ("wissel2023") or ("osipov2024") or ("cao2021") or leave empty to process all
 
 # Define omic IDs manually or leave empty to read from omic_ids.csv
 OMIC_IDS=()  # Example: ("gex" "cnv")

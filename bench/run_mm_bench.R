@@ -1,6 +1,6 @@
 #' Multi-omics (MM) benchmark on PDAC datasets
 #'
-#' This script runs a multi-omics benchmark on the two PDAC datasets:
+#' This script runs a multi-omics benchmark on the available PDAC datasets:
 #'
 #' 1) **Feature Selection:**
 #'    - Feature selection per omic and per subsampling iteration has already

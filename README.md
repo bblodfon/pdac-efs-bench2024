@@ -11,7 +11,7 @@ renv::restore(exclude = c("BiocGenerics", "BiocManager", "BiocVersion", "Complex
 
 ## Data and Preprocessing
 
-We use two multi-omics PDAC datasets. Preprocessing steps include:
+We use 3 multi-omics PDAC datasets. Preprocessing steps include:
 
 - Patient and feature filtering
 - Metadata curation
@@ -28,7 +28,7 @@ The benchmarking pipeline consists of three main steps, located in the `bench/` 
 
 Script: [`bench/run_efs.sh`](https://github.com/bblodfon/pdac-efs-bench2024/blob/main/bench/run_efs.sh): Runs the Ensemble Feature Selection procedure ([`bench/efs.R`](https://github.com/bblodfon/pdac-efs-bench2024/blob/main/bench/efs.R)) across:
 
-- Both datasets
+- All datasets
 - All omics
 - All resampling iterations
 
