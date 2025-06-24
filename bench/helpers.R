@@ -88,10 +88,11 @@ oob_to_cindex_convert = function(efs) {
 #' @param lrn_ids `character()` - Learner IDs to include (default: all learners).
 #' @param type `character(1)` - Type of Pareto front to use: `"empirical"` or
 #' `"estimated"` (default).
-#' @param upper_bound `character(1)` - Defines upper bound for estimated Pareto front: `"max_efs"` (default, max number of features in the efs object) or `"max_pf"` (max
-#' number of features in the empirical PF).
+#' @param upper_bound `character(1)` - Defines upper bound for estimated Pareto
+#' front: `"max_efs"` (default, max number of features in the efs object) or
+#' `"max_pf"` (max number of features in the empirical PF).
 #' This number influences the knee point estimation as larger upper bounds result
-#' in larger returned number of features.
+#' in higher number of selected features.
 #' @param print_params `list()` - Named list with dataset identifiers
 #' (`dataset_id`, `omic_id`, `rsmp_id`).
 #'
