@@ -6,7 +6,7 @@ default:
   logging:
     bbotk_log: !expr lgr::get_logger("bbotk")$set_threshold("warn")
     mlr3_log: !expr lgr::get_logger("mlr3")$set_threshold("warn")
-  workers: 10 # for parallelization
+  workers: 40 # for parallelization
   efs:
     store_bmr: FALSE
     repeats: 100 # how many subsamples per learner
