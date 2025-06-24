@@ -2,7 +2,7 @@
 
 ## Publication
 
-Wissel et al. (2023) Systematic comparison of multi-omics survival models reveals a widespread lack of noise resistance.
+Wissel et al. (2023) Systematic comparison of multi-omics survival models reveals a widespread lack of noise resistance. [link](https://doi.org/10.1016/j.crmeth.2023.100461)
 
 ## Files
 
@@ -18,7 +18,6 @@ Wissel et al. (2023) Systematic comparison of multi-omics survival models reveal
 6 data modalities/types are included:
 
 - `Clinical` + surgical pathology: `age`, `sex`, `tumor_stage` (stages I and II), `number of positive lymph nodes`
-- Not receiving enough guidance/training to complete my work => very difficult to answer in an academic context
 - `GEX`: normalized counts, always > 0 (not standardized)
 - `CNV`: values in {-2,-1,0,1,2}
 - `RPPA`: normalized expression (not standardized)

@@ -184,7 +184,7 @@ mut_task = as_task_surv(x = data, time = "time", event = "status", id = "mutatio
 mut_task$set_col_roles(cols = "patient_id", roles = "name")
 saveRDS(mut_task, file = file.path(dataset_path, "mut_task.rds"))
 
-# Pre-filter features (variance) ----
+# PRE-FILTER (variance) ----
 # keep only the top 2000 features with the highest variance per omic
 n_features = 2000
 data_list_flt = mlr3misc::map(data_list, function(.data) {
