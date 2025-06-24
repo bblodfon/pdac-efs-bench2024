@@ -194,7 +194,7 @@ if (FALSE) {
 
 # OMICS (5) ----
 #' Note: In all omics datasets, we will use `Gene` level features and get only
-#' the `Tumor` samples, unless otherwise specified in
+#' the `Tumor` samples, unless otherwise specified
 
 ## GEX ----
 #' Note: we have added a `names` string in the 1st line, 1st column of the file
@@ -371,7 +371,7 @@ mlr3misc::map(data_list, function(.data) {
 # check #features
 map(data_list, ncol) |> unlist()
 # clinical      gex      cnv     prot     phos     ngly
-# 10    28057    19888     6864     3835     2844
+# 10            28057    19888   6864     3835     2844
 
 # PRE-FILTER (variance) ----
 # keep only the top 2000 features with the highest variance per omic
