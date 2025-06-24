@@ -26,5 +26,5 @@ p3 = autoplot(task_cao2021, theme = theme_minimal(base_size = 14)) +
   labs(x = "Months", y = "Survival probability", title = cao_abbrev) +
   theme(text = element_text(family = "Arial"))
 
-plot_grid(p1, p2, nrow = 1, labels = c("a", "b", "c"))
-ggsave("data/img/km_curves.png", width = 8, height = 4, dpi = 600, bg = "white")
+plot_grid(p1, p2, p3, nrow = 1, labels = c("a", "b", "c"))
+ggsave("data/img/km_curves.png", width = 10, height = 4, dpi = 600, bg = "white")
