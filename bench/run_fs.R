@@ -39,7 +39,7 @@ handlers(global = TRUE)
 handlers("progress")
 
 # Define datasets
-dataset_ids = c("wissel2023", "osipov2024")
+dataset_ids = c("wissel2023", "osipov2024", "cao2021")
 
 # Construct a parameter grid (all combinations of dataset_id, omic_id, rsmp_id)
 grid_list = lapply(dataset_ids, function(dataset_id) {
