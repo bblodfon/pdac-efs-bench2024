@@ -371,7 +371,7 @@ p_nog_rsmp = stab_nog_rsmp |>
     fill = "FS Method",
     title = "Feature Selection Stability across Omic Types"
   ) +
-  ylim(c(0, 0.62)) +
+  ylim(c(0, 0.65)) +
   theme(
     axis.text.x = element_text(angle = 35, hjust = 1),
     text = element_text(family = "Arial")
@@ -469,7 +469,7 @@ p_times = timings_long |>
     fill = "FS Method",
     title = "Execution Time of FS Methods across Omic Types"
   ) +
-  ylim(c(0, 15)) # 15min upper bound
+  ylim(c(0, 15)) + # 15min upper bound
   theme(
     axis.text.x = element_text(angle = 35, hjust = 1),
     text = element_text(family = "Arial")
