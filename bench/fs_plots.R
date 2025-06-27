@@ -163,6 +163,8 @@ fs_long = fs |>
   ))
 
 ## Jaccard ----
+method_lvls = c("hEFS (9 models)", "EFS (CoxLasso)", "hEFS (3 RSFs)", "CoxLasso")
+
 # Assess stability across all 100 resamplings - 1 value per (dataset, omic) combo
 stab_summary_jacc = fs_long |>
   group_by(dataset_id, omic_id, method) |>
@@ -172,9 +174,10 @@ stab_summary_jacc = fs_long |>
   )
 
 p_jacc = stab_summary_jacc |>
-  group_by(dataset_id, omic_id) |>
-  mutate(method = fct_reorder(method, stability, .fun = median, .desc = TRUE)) |>
-  ungroup() |>
+  #group_by(dataset_id, omic_id) |>
+  #mutate(method = fct_reorder(method, stability, .fun = median, .desc = TRUE)) |>
+  #ungroup() |>
+  mutate(method = factor(method, levels = method_lvls)) |>
   ggplot(aes(x = omic_id, y = stability, fill = method)) +
     geom_col(position = position_dodge(width = 0.9)) +
     scale_fill_manual(values = custom_colors) +
@@ -184,7 +187,7 @@ p_jacc = stab_summary_jacc |>
       scales = "free_x",
       labeller = as_labeller(dataset_labels)
     ) +
-    ylim(c(0, 0.7)) +
+    ylim(c(0, 0.6)) +
     labs(
       x = "Omics",
       y = "Jaccard Similarity",
@@ -234,9 +237,10 @@ stab_summary_nog = fs_long |>
   )
 
 p_nog = stab_summary_nog |>
-  group_by(dataset_id, omic_id) |>
-  mutate(method = fct_reorder(method, stability, .fun = median, .desc = TRUE)) |>
-  ungroup() |>
+  mutate(method = factor(method, levels = method_lvls)) |>
+  #group_by(dataset_id, omic_id) |>
+  #mutate(method = fct_reorder(method, stability, .fun = median, .desc = TRUE)) |>
+  #ungroup() |>
   ggplot(aes(x = omic_id, y = stability, fill = method)) +
   geom_col(position = position_dodge(width = 0.9)) +
   scale_fill_manual(values = custom_colors) +
@@ -246,7 +250,7 @@ p_nog = stab_summary_nog |>
     scales = "free_x",
     labeller = as_labeller(dataset_labels)
   ) +
-  ylim(c(0, 0.7)) +
+  ylim(c(0, 0.62)) +
   labs(
     x = "Omics",
     y = "Nogueira Similarity",
@@ -294,9 +298,10 @@ stab_jacc_rsmp = fs_long |>
   unnest_longer(stability)
 
 p_jacc_rsmp = stab_jacc_rsmp |>
-  group_by(dataset_id, omic_id) |>
-  mutate(method = fct_reorder(method, stability, .fun = median, .desc = TRUE)) |>
-  ungroup() |>
+  mutate(method = factor(method, levels = method_lvls)) |>
+  #group_by(dataset_id, omic_id) |>
+  #mutate(method = fct_reorder(method, stability, .fun = median, .desc = TRUE)) |>
+  #ungroup() |>
   ggplot(aes(x = omic_id, y = stability, fill = method)) +
   geom_boxplot(outlier.shape = NA, alpha = 0.7,
                position = position_dodge2(preserve = "single")) +
@@ -317,7 +322,7 @@ p_jacc_rsmp = stab_jacc_rsmp |>
     fill = "FS Method",
     title = "Feature Selection Stability across Omic Types"
   ) +
-  ylim(c(0, 0.7)) +
+  ylim(c(0, 0.6)) +
   theme(
     axis.text.x = element_text(angle = 35, hjust = 1),
     text = element_text(family = "Arial")
@@ -342,9 +347,10 @@ stab_nog_rsmp = fs_long |>
   unnest_longer(stability)
 
 p_nog_rsmp = stab_nog_rsmp |>
-  group_by(dataset_id, omic_id) |>
-  mutate(method = fct_reorder(method, stability, .fun = median, .desc = TRUE)) |>
-  ungroup() |>
+  mutate(method = factor(method, levels = method_lvls)) |>
+  # group_by(dataset_id, omic_id) |>
+  # mutate(method = fct_reorder(method, stability, .fun = median, .desc = TRUE)) |>
+  # ungroup() |>
   ggplot(aes(x = omic_id, y = stability, fill = method)) +
   geom_boxplot(outlier.shape = NA, alpha = 0.7,
                position = position_dodge2(preserve = "single")) +
@@ -365,7 +371,7 @@ p_nog_rsmp = stab_nog_rsmp |>
     fill = "FS Method",
     title = "Feature Selection Stability across Omic Types"
   ) +
-  ylim(c(0, 0.7)) +
+  ylim(c(0, 0.62)) +
   theme(
     axis.text.x = element_text(angle = 35, hjust = 1),
     text = element_text(family = "Arial")
