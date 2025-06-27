@@ -40,7 +40,12 @@ custom_colors = c(
 # dataset labels
 osipov_abbrev = "Osipov et al. (2024)"
 wissel_abbrev = "Wissel et al. (2023)"
-dataset_labels = c(osipov2024 = osipov_abbrev, wissel2023 = wissel_abbrev)
+cao_abbrev    = "Cao et al. (2021)"
+dataset_labels = c(
+  osipov2024 = osipov_abbrev,
+  wissel2023 = wissel_abbrev,
+  cao2021 = cao_abbrev
+)
 
 # load the feature selection results per omic
 fs = readRDS(file = "bench/fs.rds")
@@ -458,6 +463,7 @@ p_times = timings_long |>
     fill = "FS Method",
     title = "Execution Time of FS Methods across Omic Types"
   ) +
+  ylim(c(0, 15)) # 15min upper bound
   theme(
     axis.text.x = element_text(angle = 35, hjust = 1),
     text = element_text(family = "Arial")
