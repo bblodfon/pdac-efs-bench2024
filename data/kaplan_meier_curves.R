@@ -1,3 +1,5 @@
+#' Plot the Kaplan-Meier curves for all PDAC datasets in the `/data` dir
+#' Execute: `Rscript data/kaplan_meier_curves.R` (from project root)
 suppressPackageStartupMessages({
   library(mlr3proba)
   library(cowplot)
@@ -27,4 +29,4 @@ p3 = autoplot(task_cao2021, theme = theme_minimal(base_size = 14)) +
   theme(text = element_text(family = "Arial"))
 
 plot_grid(p1, p2, p3, nrow = 1, labels = c("a", "b", "c"))
-ggsave("data/img/km_curves.png", width = 10, height = 4, dpi = 600, bg = "white")
+ggsave("data/km_curves.png", width = 10, height = 4, dpi = 600, bg = "white")
