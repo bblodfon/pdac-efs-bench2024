@@ -24,7 +24,7 @@ All related code and metadata are found in the [`data/`](https://github.com/bblo
 
 The benchmarking pipeline consists of three main steps, located in the `bench/` directory.
 
-### Ensemble Feature Selection (EFS)
+### Hybrid Ensemble Feature Selection (hEFS)
 
 Script: [`bench/run_efs.sh`](https://github.com/bblodfon/pdac-efs-bench2024/blob/main/bench/run_efs.sh): Runs the Ensemble Feature Selection procedure ([`bench/efs.R`](https://github.com/bblodfon/pdac-efs-bench2024/blob/main/bench/efs.R)) across:
 
