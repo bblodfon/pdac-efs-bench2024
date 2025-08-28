@@ -1,3 +1,12 @@
+#' This script processes and visualizes the results from a benchmark study
+#' comparing different feature selection (FS) methods for survival prediction
+#' using multi-omics data from three PDAC cancer cohorts (Cao et al. 2021,
+#' Wissel et al. 2023, Osipov et al. 2024).
+#' The focus is on evaluating `sparsity`, omic-level `contribution`, and `predictivity`
+#' (C-index, ISBS) of selected features under various FS strategies.
+#'
+#' Execute: `Rscript bench/bm_plots.R` (from project root).
+
 suppressPackageStartupMessages({
   library(ggplot2)
   library(cowplot)
@@ -11,14 +20,22 @@ suppressPackageStartupMessages({
 result = readRDS(file = "bench/result.rds")
 
 # dataset labels
-osipov_abbrev = "Osipov et al. (2024)"
-wissel_abbrev = "Wissel et al. (2023)"
-dataset_labels = c(osipov2024 = osipov_abbrev, wissel2023 = wissel_abbrev)
+#osipov_abbrev = "Osipov et al. (2024)"
+#wissel_abbrev = "Wissel et al. (2023)"
+#cao_abbrev    = "Cao et al. (2021)"
+osipov_abbrev = "MolTwin"
+wissel_abbrev = "TCGA"
+cao_abbrev    = "CPTAC"
+dataset_labels = c(
+  osipov2024 = osipov_abbrev,
+  wissel2023 = wissel_abbrev,
+  cao2021    = cao_abbrev
+)
 
 # colors
 # RColorBrewer::brewer.pal(n = 9, name = "Set1") # plus two more I added
 set1_colors = c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00", "#FFFF33",
-                "#A65628", "#F781BF", "#999999", "#17BECF","#6A5ACD")
+                "#A65628", "#F781BF", "#999999", "#17BECF","#6A5ACD", "#595959")
 
 custom_colors = c(
   "hEFS (9 models)" = set1_colors[1],
@@ -87,16 +104,13 @@ p_mmsparse = result |>
     facet_wrap(
       ~ dataset_id,
       scales = "free_x",  # One plot per dataset_id
-      labeller = as_labeller(dataset_labels)
+      labeller = as_labeller(dataset_labels),
+      strip.position = "top"
     ) +
     theme(
       axis.text.x = element_blank(),
-      # legend.position = "bottom",
-      # legend.box = "horizontal",
-      # legend.margin = margin(t = -20),
       text = element_text(family = "Arial")
     ) +
-    #guides(fill = guide_legend(nrow = 2)) +
     labs(
       x = "",
       y = "Number of Total Features",
@@ -104,16 +118,7 @@ p_mmsparse = result |>
       fill = "FS Method"
     )
 
-p_mmsparse2 = ggdraw(p_mmsparse) +
-  draw_text("Lower is better", x = 0.17, y = 0.6, angle = 90, size = 10, hjust = 0) +
-  draw_line(
-    x = c(0.145, 0.145),
-    y = c(0.8, 0.55),
-    arrow = arrow(length = unit(0.03, "npc")),
-    colour = "black",
-    size = 0.8
-  )
-ggsave("bench/img/mm_sparsity.png", plot = p_mmsparse2, width = 7, height = 5,
+ggsave("bench/img/mm_sparsity.png", plot = p_mmsparse, width = 7, height = 5,
        dpi = 600, bg = "white")
 
 # MM contribution ----
@@ -122,12 +127,15 @@ extract_omics = function(features) {
   case_when(
     str_starts(features, "cnv_") ~ "CNV",
     str_starts(features, "snv_") ~ "SNV",
-    str_starts(features, "indel") ~ "Insertions/Deletions",
+    str_starts(features, "indel") ~ "INDELs",
     str_starts(features, "path_") ~ "Pathology",
-    str_starts(features, "gex_") ~ "Gene Expression",
+    str_starts(features, "gex_") ~ "GEX",
     str_starts(features, "meth_") ~ "Methylation",
     str_starts(features, "mutation_") ~ "Mutation",
     str_starts(features, "rppa_") ~ "RPPA",
+    str_starts(features, "prot_") ~ "Proteomics",
+    str_starts(features, "phos_") ~ "PhosphoP",
+    str_starts(features, "ngly_") ~ "N-GlycoP",
     TRUE ~ "Clinical" # everything else
   )
 }
@@ -169,44 +177,6 @@ p_omic_per = ctr_res |>
 ggsave("bench/img/omic_contribution_stacked.png", plot = p_omic_per,
        width = 9, height = 5, dpi = 600, bg = "white")
 
-# Average counts barplot
-## order by average total number of features per omic
-if (FALSE) {
-  ctr_res2 = ctr_res |>
-    filter(omics_type != "Clinical") |>
-    group_by(dataset_id, omics_type) |>
-    summarize(avg_total = sum(avg_count), .groups = "drop") |>
-    arrange(dataset_id, desc(avg_total)) |>
-    mutate(omics_type = factor(omics_type, levels = unique(omics_type))) |>
-    select(-avg_total) |>
-    left_join(ctr_res, by = c("dataset_id", "omics_type")) |>
-    mutate(omics_type = factor(omics_type, levels = unique(omics_type)))
-
-  p_omic_counts = ctr_res2 |>
-    ggplot(aes(x = reorder(fs_method_id, -avg_count, sum),
-               y = avg_count, fill = omics_type)) +
-    geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
-    scale_fill_manual(values = set1_colors) +
-    facet_wrap(
-      ~ dataset_id,
-      scales = "free_x",
-      labeller = as_labeller(dataset_labels)
-    ) +
-    labs(
-      x = "Feature Selection Method",
-      y = "Average Number of Features",
-      fill = "Omic Type"
-    ) +
-    theme_minimal(base_size = 14) +
-    theme(
-      axis.text.x = element_text(angle = 45, hjust = 1),
-      legend.position = "top",
-      text = element_text(family = "Arial")
-    )
-  ggsave("bench/img/omic_contribution_counts.png", plot = p_omic_counts,
-         width = 8, height = 5, dpi = 600, bg = "white")
-}
-
 # Predictivity (C-index) ----
 # some stats for Harrell's C-index per dataset
 ## Wissel
@@ -235,7 +205,20 @@ result_long |>
   summarize(cindex = median(value), .groups = "drop") |>
   arrange(desc(cindex))
 
-measures = c("harrell_c", "uno_c") # note: Uno's results same as Harrell's C
+## Cao
+result_long |>
+  filter(dataset_id == "cao2021", measure == "harrell_c", grepl("^(RSF|BlockF)", model)) |>
+  group_by(dataset_id, model, fs_method_id) |>
+  summarize(cindex = median(value), .groups = "drop") |>
+  arrange(desc(cindex))
+
+result_long |>
+  filter(dataset_id == "cao2021", measure == "harrell_c", grepl("^Cox", model)) |>
+  group_by(dataset_id, model, fs_method_id) |>
+  summarize(cindex = median(value), .groups = "drop") |>
+  arrange(desc(cindex))
+
+measures = c("harrell_c", "uno_c") # note: Uno's results similar to Harrell's C
 fs_colors = c(custom_colors, "Baseline" = set1_colors[9], "no FS" = set1_colors[5])
 
 ## CoxLasso (integration model) ----
@@ -244,7 +227,10 @@ for (meas in measures) {
     res_cox =
       result_long |>
       filter(measure == !!meas) |>
-      filter(model %in% c("CoxLasso (ALL)", "Cox (Clinical)")) |>
+      # decide on which baseline model to have here compared: CoxPH seems more natural
+      # as we use CoxLasso as model, but RSF > CoxPH with clinical data, so!
+      #filter(model %in% c("CoxLasso (ALL)", "Cox (Clinical)")) |>
+      filter(model %in% c("CoxLasso (ALL)", "RSF (Clinical)")) |>
       (\(df) if (keep_nofs) df else filter(df, fs_method_id != "no FS"))() |>
       mutate(
         fs_method_id = factor(fs_method_id, levels = c("Baseline", fs_method_ids, "no FS"))
@@ -277,7 +263,11 @@ for (meas in measures) {
         legend.position = "bottom",
         legend.box = "horizontal",
         legend.margin = margin(t = -20),
-        text = element_text(family = "Arial")
+        text = element_text(family = "Arial"),
+        strip.background = element_rect(fill = "lightgrey", color = NA),
+        strip.text = element_text(face = "bold", size = 12),
+        panel.spacing = unit(1, "lines"),
+        panel.border = element_rect(color = "grey80", fill = NA)
       ) +
       labs(
         x = "",
@@ -286,22 +276,24 @@ for (meas in measures) {
         fill = "FS Method"
       ) +
       geom_vline(xintercept = 1.5, linetype = "dotted", color = "black", linewidth = 0.8) +
-      annotate("text", x = 1, y = 0.95, label = "CoxPH\n(Clinical)",
+      annotate("text", x = 1, y = 0.95,
+               #label = "CoxPH\n(Clinical)",
+               label = "RSF\n(Clinical)",
                size = 4, hjust = 0.5, family = "Arial") +
-      annotate("text", x = 3.5, y = 0.95, label = "CoxLasso\n(Clinical + Multi-omics)",
+      annotate("text", ifelse(keep_nofs, 4, 3.5), y = 0.95, label = "CoxLasso\n(Clinical + Multi-omics)",
                size = 4, hjust = 0.5, family = "Arial")
 
     p_cox2 = ggdraw(p_cox) +
-      draw_text("Higher is better", x = 0.117, y = 0.15, angle = 90, size = 10, hjust = 0) +
+      draw_text("Higher is better", x = 0.1, y = 0.15, angle = 90, size = 10, hjust = 0) +
       draw_line(
-        x = c(0.1, 0.1),
+        x = c(0.085, 0.085),
         y = c(0.15, 0.4),
         arrow = arrow(length = unit(0.03, "npc")),
         colour = "black",
         size = 0.8
       )
     ggsave(paste0("bench/img/", meas, "_coxlasso", ifelse(keep_nofs, "_nofs", ""), ".png"),
-           plot = p_cox2, width = 9, height = 5, dpi = 600, bg = "white")
+           plot = p_cox2, width = 13, height = 5, dpi = 600, bg = "white")
   }
 }
 
@@ -344,7 +336,11 @@ for (meas in measures) {
         legend.position = "bottom",
         legend.box = "horizontal",
         legend.margin = margin(t = -20),
-        text = element_text(family = "Arial")
+        text = element_text(family = "Arial"),
+        strip.background = element_rect(fill = "lightgrey", color = NA),
+        strip.text = element_text(face = "bold", size = 12),
+        panel.spacing = unit(1, "lines"),
+        panel.border = element_rect(color = "grey80", fill = NA)
       ) +
       labs(
         x = "",
@@ -355,20 +351,20 @@ for (meas in measures) {
       geom_vline(xintercept = 1.5, linetype = "dotted", color = "black", linewidth = 0.8) +
       annotate("text", x = 1, y = 0.95, label = "RSF\n(Clinical)",
                size = 4, hjust = 0.5, family = "Arial") +
-      annotate("text", x = 3.5, y = 0.95, label = "RSF\n(Clinical + Multi-omics)",
+      annotate("text", x = ifelse(keep_nofs, 4, 3.5), y = 0.95, label = "RSF\n(Clinical + Multi-omics)",
                size = 4, hjust = 0.5, family = "Arial")
 
     p_rsf2 = ggdraw(p_rsf) +
-      draw_text("Higher is better", x = 0.117, y = 0.15, angle = 90, size = 10, hjust = 0) +
+      draw_text("Higher is better", x = 0.1, y = 0.15, angle = 90, size = 10, hjust = 0) +
       draw_line(
-        x = c(0.1, 0.1),
+        x = c(0.085, 0.085),
         y = c(0.15, 0.4),
         arrow = arrow(length = unit(0.03, "npc")),
         colour = "black",
         size = 0.8
       )
     ggsave(paste0("bench/img/", meas, "_rsf", ifelse(keep_nofs, "_nofs", ""), ".png"),
-           plot = p_rsf2, width = 9, height = 5, dpi = 600, bg = "white")
+           plot = p_rsf2, width = 13, height = 5, dpi = 600, bg = "white")
   }
 }
 
@@ -411,7 +407,11 @@ for (meas in measures) {
         legend.position = "bottom",
         legend.box = "horizontal",
         legend.margin = margin(t = -20),
-        text = element_text(family = "Arial")
+        text = element_text(family = "Arial"),
+        strip.background = element_rect(fill = "lightgrey", color = NA),
+        strip.text = element_text(face = "bold", size = 12),
+        panel.spacing = unit(1, "lines"),
+        panel.border = element_rect(color = "grey80", fill = NA)
       ) +
       labs(
         x = "",
@@ -422,20 +422,20 @@ for (meas in measures) {
       geom_vline(xintercept = 1.5, linetype = "dotted", color = "black", linewidth = 0.8) +
       annotate("text", x = 1, y = 0.95, label = "RSF\n(Clinical)",
                size = 4, hjust = 0.5, family = "Arial") +
-      annotate("text", x = 3.5, y = 0.95, label = "BlockForest\n(Clinical + Multi-omics)",
+      annotate("text", x = ifelse(keep_nofs, 4, 3.5), y = 0.95, label = "BlockForest\n(Clinical + Multi-omics)",
                size = 4, hjust = 0.5, family = "Arial")
 
     p_bf2 = ggdraw(p_bf) +
-      draw_text("Higher is better", x = 0.117, y = 0.15, angle = 90, size = 10, hjust = 0) +
+      draw_text("Higher is better", x = 0.1, y = 0.15, angle = 90, size = 10, hjust = 0) +
       draw_line(
-        x = c(0.1, 0.1),
+        x = c(0.085, 0.085),
         y = c(0.15, 0.4),
         arrow = arrow(length = unit(0.03, "npc")),
         colour = "black",
         size = 0.8
       )
     ggsave(paste0("bench/img/", meas, "_bf", ifelse(keep_nofs, "_nofs", ""), ".png"),
-           plot = p_bf2, width = 9, height = 5, dpi = 600, bg = "white")
+           plot = p_bf2, width = 13, height = 5, dpi = 600, bg = "white")
   }
 }
 
@@ -462,7 +462,11 @@ for (meas in measures) {
       theme_minimal(base_size = 14) +
       theme(
         axis.text.x = element_blank(),
-        text = element_text(family = "Arial")
+        text = element_text(family = "Arial"),
+        strip.background = element_rect(fill = "lightgrey", color = NA),
+        strip.text = element_text(face = "bold", size = 12),
+        panel.spacing = unit(1, "lines"),
+        panel.border = element_rect(color = "grey80", fill = NA)
       ) +
       labs(
         x = "",
@@ -474,21 +478,32 @@ for (meas in measures) {
          width = 7, height = 5, dpi = 600, bg = "white")
 }
 
-## ALL vs GEX+Clinical vs Clinical (Wissel/TCGA) ----
+## ALL vs GEX+Clinical vs Clinical (CPTAC and TCGA) ----
+## also sup.Fig.9
+# included_models = c(
+#   "RSF (ALL)", "RSF (Clinical)", "RSF (GEX)", "RSF (Clinical + GEX)",
+#   "BlockForest (ALL)",  "BlockForest (Clinical + GEX)"
+# )
 included_models = c(
-  "RSF (ALL)", "RSF (Clinical)", "RSF (GEX)", "RSF (Clinical + GEX)",
+  "RSF (Clinical)", "RSF (GEX)",
   "BlockForest (ALL)",  "BlockForest (Clinical + GEX)"
 )
 
 p_cmps = result_long |>
-  # Harrell's C-index and Wissel dataset only
-  filter(dataset_id == "wissel2023", measure == "harrell_c") |>
+  # Harrell's C-index and Wissel or Cao datasets only (which have GEX data)
+  filter(dataset_id %in% c("wissel2023", "cao2021"), measure == "harrell_c") |>
   filter(model %in% included_models) |>
-  filter(fs_method_id %in% c("hEFS (9 models)", "Baseline")) |>
+  filter(fs_method_id %in% c("hEFS (9 models)", "Baseline", "no FS")) |>
+  # model => BlockForest (ALL) has 2 fs_methods, change name for one of them
+  mutate(model = case_match(fs_method_id, "no FS" ~ "BlockForest (ALL, no FS)", .default = model)) |>
   mutate(model = fct_reorder(model, value, .fun = median, .desc = TRUE)) |>
   ggplot(aes(x = model, y = value, fill = model)) +
     geom_boxplot(outlier.shape = NA, alpha = 0.7) +
     geom_jitter(aes(color = model), width = 0.2, alpha = 0.5, size = 0.7, show.legend = FALSE) +
+    facet_wrap(
+      ~ dataset_id,
+      labeller = as_labeller(dataset_labels)
+    ) +
     geom_hline(yintercept = 0.5, color = "red", linetype = "dashed", linewidth = 0.8) +
     scale_color_brewer(palette = "Set1") +
     scale_fill_brewer(palette = "Set1") +
@@ -496,17 +511,21 @@ p_cmps = result_long |>
     theme_minimal(base_size = 14) +
     theme(
       axis.text.x = element_blank(),
-      text = element_text(family = "Arial")
+      text = element_text(family = "Arial"),
+      strip.background = element_rect(fill = "lightgrey", color = NA),
+      strip.text = element_text(face = "bold", size = 12),
+      panel.spacing = unit(1, "lines"),
+      panel.border = element_rect(color = "grey80", fill = NA)
     ) +
     labs(
       x = "",
       y = "Harrell's C-index",
-      title = "Single-omic vs Multi-omics",
-      subtitle = "hEFS applied for GEX and ALL omics",
-      fill = "Model"
+      #title = "Single-omic vs Multi-omics",
+      #subtitle = "hEFS applied for GEX and ALL omics",
+      fill = "Model (Data)"
     )
-ggsave("bench/img/harrell_c_cmps.png", plot = p_cmps, width = 7, height = 5,
-       dpi = 600, bg = "white")
+ggsave("bench/img/harrell_c_cmps.png", plot = p_cmps, width = 7, height = 4,
+        dpi = 600, bg = "white")
 
 # Predictivity (ISBS) ----
 p_isbs = result_long |>
@@ -521,22 +540,22 @@ p_isbs = result_long |>
   geom_hline(yintercept = 0, color = "red", linetype = "dashed", linewidth = 0.8) +
   theme_minimal(base_size = 14) +
   facet_grid(
-    measure ~ dataset_id,
-    labeller = as_labeller(
-      c(brier_tmax24 = "Up to t = 2 years",
-        osipov2024 = "Osipov et al. (2024)",
-        wissel2023 = "Wissel et al. (2023)"
-      )
-    ),
+    ~ dataset_id,
+    labeller = as_labeller(dataset_labels),
   ) +
   labs(
     x = "Feature Selection Method",
-    y = "IBS ERV",
+    y = "IPA",
     fill = "Integration Model (Data)"
   ) +
   ylim(c(-1, 0.5)) +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1),
-    legend.position = "top"
+    text = element_text(family = "Arial"),
+    legend.position = "top",
+    strip.background = element_rect(fill = "lightgrey", color = NA),
+    strip.text = element_text(face = "bold", size = 12),
+    panel.spacing = unit(1, "lines"),
+    panel.border = element_rect(color = "grey80", fill = NA)
   )
-ggsave("bench/img/isbs.png", plot = p_isbs, width = 11, height = 6, dpi = 600, bg = "white")
+ggsave("bench/img/isbs.png", plot = p_isbs, width = 12, height = 6, dpi = 600, bg = "white")

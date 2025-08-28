@@ -38,14 +38,34 @@ custom_colors = c(
 )
 
 # dataset labels
-osipov_abbrev = "Osipov et al. (2024)"
-wissel_abbrev = "Wissel et al. (2023)"
-cao_abbrev    = "Cao et al. (2021)"
+#osipov_abbrev = "Osipov et al. (2024)"
+#wissel_abbrev = "Wissel et al. (2023)"
+#cao_abbrev    = "Cao et al. (2021)"
+osipov_abbrev = "MolTwin"
+wissel_abbrev = "TCGA"
+cao_abbrev    = "CPTAC"
 dataset_labels = c(
   osipov2024 = osipov_abbrev,
   wissel2023 = wissel_abbrev,
-  cao2021 = cao_abbrev
+  cao2021    = cao_abbrev
 )
+
+rename_omics = function(id) {
+  case_when(
+    id == "cnv" ~ "CNV",
+    id == "snv" ~ "SNV",
+    id == "indel" ~ "INDELs",
+    id == "path" ~ "Pathology",
+    id == "gex" ~ "GEX",
+    id == "meth" ~ "Methylation",
+    id == "mutation" ~ "Mutation",
+    id == "rppa" ~ "RPPA",
+    id == "prot" ~ "Proteomics",
+    id == "phos" ~ "PhosphoP",
+    id == "ngly" ~ "N-GlycoP",
+    TRUE ~ "" # omic id that is not mapped yet
+  )
+}
 
 # load the feature selection results per omic
 fs = readRDS(file = "bench/fs.rds")
@@ -73,6 +93,7 @@ p_sparse = fs_long |>
   group_by(dataset_id, omic_id) |>
   mutate(method = fct_reorder(method, n_feats, .fun = median, .desc = TRUE)) |>
   ungroup() |>
+  mutate(omic_id = rename_omics(omic_id)) |>
   ggplot(aes(x = omic_id, y = n_feats, fill = method)) +
   geom_boxplot(outlier.shape = NA, alpha = 0.7,
                position = position_dodge2(preserve = "single")) +
@@ -116,6 +137,7 @@ p_sparse_nocoxlasso = fs_long |>
   group_by(dataset_id, omic_id) |>
   mutate(method = fct_reorder(method, n_feats, .fun = median, .desc = TRUE)) |>
   ungroup() |>
+  mutate(omic_id = rename_omics(omic_id)) |>
   ggplot(aes(x = omic_id, y = n_feats, fill = method)) +
   geom_boxplot(outlier.shape = NA, alpha = 0.7,
                position = position_dodge2(preserve = "single")) +
@@ -127,21 +149,25 @@ p_sparse_nocoxlasso = fs_long |>
   theme_minimal(base_size = 14) +
   facet_wrap(
     ~ dataset_id,
-    scales = "free_x",  # One plot per dataset_id
+    scales = "free_x",
     labeller = as_labeller(dataset_labels)
   ) +
   labs(
-    x = "Omics",
+    x = NULL, # Omics
     y = "Number of Selected Features",
     fill = "FS Method",
-    title = "Feature Selection Sparsity across Omic Types"
+    #title = "Feature Selection Sparsity across Omic Types"
   ) +
   theme(
     axis.text.x = element_text(angle = 35, hjust = 1),
-    text = element_text(family = "Arial")
+    text = element_text(family = "Arial"),
+    strip.background = element_rect(fill = "lightgrey", color = NA),
+    strip.text = element_text(face = "bold", size = 12),
+    panel.spacing = unit(1, "lines"),
+    panel.border = element_rect(color = "grey80", fill = NA)
   )
 ggsave("bench/img/sparsity_no_coxlasso.png", plot = p_sparse_nocoxlasso,
-       width = 7, height = 5, dpi = 600, bg = "white")
+       width = 8, height = 5, dpi = 600, bg = "white")
 
 # Stability (Per-Omic) ----
 cat("Stability")
@@ -178,6 +204,7 @@ p_jacc = stab_summary_jacc |>
   #mutate(method = fct_reorder(method, stability, .fun = median, .desc = TRUE)) |>
   #ungroup() |>
   mutate(method = factor(method, levels = method_lvls)) |>
+  mutate(omic_id = rename_omics(omic_id)) |>
   ggplot(aes(x = omic_id, y = stability, fill = method)) +
     geom_col(position = position_dodge(width = 0.9)) +
     scale_fill_manual(values = custom_colors) +
@@ -241,6 +268,7 @@ p_nog = stab_summary_nog |>
   #group_by(dataset_id, omic_id) |>
   #mutate(method = fct_reorder(method, stability, .fun = median, .desc = TRUE)) |>
   #ungroup() |>
+  mutate(omic_id = rename_omics(omic_id)) |>
   ggplot(aes(x = omic_id, y = stability, fill = method)) +
   geom_col(position = position_dodge(width = 0.9)) +
   scale_fill_manual(values = custom_colors) +
@@ -272,7 +300,45 @@ p_nog2 =
     colour = "black",
     size = 0.8
   )
-ggsave("bench/img/stability_nogueira.png", plot = p_nog2, width = 7, height = 5, dpi = 600, bg = "white")
+ggsave("bench/img/stability_nogueira.png", plot = p_nog2, width = 8, height = 5,
+       dpi = 600, bg = "white")
+
+## Phi ----
+# this stability measure is the average pair-wise Pearson correlation between
+# binary vectors of length p, where features get 1 if selected, otherwise 0.
+stab_summary_phi = fs_long |>
+  left_join(p_lookup, by = c("dataset_id", "omic_id")) |>
+  group_by(dataset_id, omic_id, method) |>
+  summarize(
+    stability = stabm::stabilityPhi(features, p = p[1]),
+    .groups = "drop"
+  )
+
+p_phi = stab_summary_phi |>
+  mutate(method = factor(method, levels = method_lvls)) |>
+  mutate(omic_id = rename_omics(omic_id)) |>
+  ggplot(aes(x = omic_id, y = stability, fill = method)) +
+  geom_col(position = position_dodge(width = 0.9)) +
+  scale_fill_manual(values = custom_colors) +
+  theme_minimal(base_size = 14) +
+  facet_wrap(
+    ~ dataset_id,
+    scales = "free_x",
+    labeller = as_labeller(dataset_labels)
+  ) +
+  ylim(c(0, 0.62)) +
+  labs(
+    x = "Omics",
+    y = "Phi Similarity",
+    fill = "FS Method",
+    title = "Feature Selection Stability across Omic Types"
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 35, hjust = 1),
+    text = element_text(family = "Arial")
+  )
+ggsave("bench/img/stability_phi.png", plot = p_phi, width = 8, height = 5,
+       dpi = 600, bg = "white")
 
 ## Jaccard (Variability) ----
 # We repeatedly subsample the 100 resamplings (e.g., draw 50 at random) and
@@ -299,9 +365,7 @@ stab_jacc_rsmp = fs_long |>
 
 p_jacc_rsmp = stab_jacc_rsmp |>
   mutate(method = factor(method, levels = method_lvls)) |>
-  #group_by(dataset_id, omic_id) |>
-  #mutate(method = fct_reorder(method, stability, .fun = median, .desc = TRUE)) |>
-  #ungroup() |>
+  mutate(omic_id = rename_omics(omic_id)) |>
   ggplot(aes(x = omic_id, y = stability, fill = method)) +
   geom_boxplot(outlier.shape = NA, alpha = 0.7,
                position = position_dodge2(preserve = "single")) +
@@ -317,18 +381,22 @@ p_jacc_rsmp = stab_jacc_rsmp |>
     labeller = as_labeller(dataset_labels)
   ) +
   labs(
-    x = "Omics",
+    x = NULL, # Omics
     y = "Jaccard Similarity",
     fill = "FS Method",
-    title = "Feature Selection Stability across Omic Types"
+    #title = "Feature Selection Stability across Omic Types"
   ) +
   ylim(c(0, 0.6)) +
   theme(
     axis.text.x = element_text(angle = 35, hjust = 1),
-    text = element_text(family = "Arial")
+    text = element_text(family = "Arial"),
+    strip.background = element_rect(fill = "lightgrey", color = NA),
+    strip.text = element_text(face = "bold", size = 12),
+    panel.spacing = unit(1, "lines"),
+    panel.border = element_rect(color = "grey80", fill = NA)
   )
 ggsave("bench/img/stability_jaccard_var.png", plot = p_jacc_rsmp,
-       width = 7, height = 5, dpi = 600, bg = "white")
+       width = 8, height = 5, dpi = 600, bg = "white")
 
 ## Noqueira (Variability) ----
 set.seed(42)
@@ -348,9 +416,7 @@ stab_nog_rsmp = fs_long |>
 
 p_nog_rsmp = stab_nog_rsmp |>
   mutate(method = factor(method, levels = method_lvls)) |>
-  # group_by(dataset_id, omic_id) |>
-  # mutate(method = fct_reorder(method, stability, .fun = median, .desc = TRUE)) |>
-  # ungroup() |>
+  mutate(omic_id = rename_omics(omic_id)) |>
   ggplot(aes(x = omic_id, y = stability, fill = method)) +
   geom_boxplot(outlier.shape = NA, alpha = 0.7,
                position = position_dodge2(preserve = "single")) +
@@ -366,17 +432,22 @@ p_nog_rsmp = stab_nog_rsmp |>
     labeller = as_labeller(dataset_labels)
   ) +
   labs(
-    x = "Omics",
+    x = NULL, # Omics
     y = "Noqueira Similarity",
     fill = "FS Method",
-    title = "Feature Selection Stability across Omic Types"
+    #title = "Feature Selection Stability across Omic Types"
   ) +
   ylim(c(0, 0.65)) +
   theme(
     axis.text.x = element_text(angle = 35, hjust = 1),
-    text = element_text(family = "Arial")
+    text = element_text(family = "Arial"),
+    strip.background = element_rect(fill = "lightgrey", color = NA),
+    strip.text = element_text(face = "bold", size = 12),
+    panel.spacing = unit(1, "lines"),
+    panel.border = element_rect(color = "grey80", fill = NA)
   )
-ggsave("bench/img/stability_nogueira_var.png", plot = p_nog_rsmp, width = 7, height = 5, dpi = 600, bg = "white")
+ggsave("bench/img/stability_nogueira_var.png", plot = p_nog_rsmp, width = 8,
+       height = 5, dpi = 600, bg = "white")
 
 # Runtime ----
 cat("Runtime")
@@ -421,6 +492,7 @@ timings = timings |>
   rowwise() |>
   mutate(read_efs_times(dataset_id, omic_id, rsmp_id)) |>
   ungroup()
+# timings = readRDS("bench/timings.rds") # stored, to avoid running the above
 
 timings_long = timings |>
   pivot_longer(
@@ -430,25 +502,38 @@ timings_long = timings |>
   ) |>
   mutate(method = case_when(
     method == "coxlasso" ~ "CoxLasso",
-    method == "efs_rsf_logrank" ~ "EFS (RSF-logrank)",
-    method == "efs_rsf_maxstat" ~ "EFS (RSF-maxstat)",
-    method == "efs_aorsf" ~ "EFS (AORSF)",
+    method == "efs_rsf_logrank" ~ "RSF-logrank",
+    method == "efs_rsf_maxstat" ~ "RSF-maxstat",
+    method == "efs_aorsf" ~ "AORSF",
     method == "efs_rsf_total" ~ "hEFS (3 RSFs)",
-    method == "efs_xgb_cox" ~ "EFS (XGBoost-Cox)",
-    method == "efs_xgb_aft_log" ~ "EFS (XGBoost-AFT)",
-    method == "efs_glmb_cox" ~ "EFS (GLMBoost-Cox)",
-    method == "efs_glmb_loglog" ~ "EFS (GLMBoost-AFT)",
-    method == "efs_coxboost" ~ "EFS (CoxBoost)",
+    method == "efs_xgb_cox" ~ "XGBoost-Cox",
+    method == "efs_xgb_aft_log" ~ "XGBoost-AFT",
+    method == "efs_glmb_cox" ~ "GLMBoost-Cox",
+    method == "efs_glmb_loglog" ~ "GLMBoost-AFT",
+    method == "efs_coxboost" ~ "CoxBoost",
     method == "efs_coxlasso" ~ "EFS (CoxLasso)",
     method == "efs_all" ~ "hEFS (9 models)",
     TRUE ~ method  # there shouldn't be other categories here
   ))
 
+fs_method_ids = c("CoxLasso", "EFS (CoxLasso)", "hEFS (3 RSFs)", "hEFS (9 models)")
+timing_stats = timings_long |>
+  group_by(method) |> #dataset_id, method) |> #omic_id, method) |>
+  summarise(
+    mean_time = mean(time, na.rm = TRUE),
+    sd_time   = sd(time, na.rm = TRUE)
+    #.groups = "drop"
+  ) |>
+  mutate(summary = sprintf("%.2f ± %.2f", mean_time, sd_time))
+timing_stats |>
+  arrange(desc(mean_time)) #|> filter(method %in% fs_method_ids)
+
 # the 4 fs methods as in the previous per-omic plots
 p_times = timings_long |>
-  filter(method %in% c("CoxLasso", "EFS (CoxLasso)", "hEFS (3 RSFs)", "hEFS (9 models)")) |>
+  filter(method %in% fs_method_ids) |>
   mutate(time = time/60) |> # convert to min
   mutate(method = fct_reorder(method, time, .fun = median, .desc = TRUE)) |>
+  mutate(omic_id = rename_omics(omic_id)) |>
   ggplot(aes(x = omic_id, y = time, fill = method)) +
   geom_boxplot(outlier.shape = NA, alpha = 0.7,
                position = position_dodge2(preserve = "single")) +
@@ -464,49 +549,65 @@ p_times = timings_long |>
     labeller = as_labeller(dataset_labels)
   ) +
   labs(
-    x = "Omics",
+    x = NULL, # Omics
     y = "Execution Time (minutes)",
     fill = "FS Method",
-    title = "Execution Time of FS Methods across Omic Types"
+    #title = "Execution Time of FS Methods across Omic Types"
   ) +
-  ylim(c(0, 15)) + # 15min upper bound
+  ylim(c(0, 15)) + # 15 min upper bound
   theme(
     axis.text.x = element_text(angle = 35, hjust = 1),
-    text = element_text(family = "Arial")
+    text = element_text(family = "Arial"),
+    strip.background = element_rect(fill = "lightgrey", color = NA),
+    strip.text = element_text(face = "bold", size = 12),
+    panel.spacing = unit(1, "lines"),
+    panel.border = element_rect(color = "grey80", fill = NA)
   )
-ggsave("bench/img/timings.png", plot = p_times, width = 7, height = 5,
+ggsave("bench/img/timings.png", plot = p_times, width = 8, height = 5,
        dpi = 600, bg = "white")
 
-# remove the hybrid methods (that combine multiple learners)
+efs_colors = c("#1B9E77", "#D95F02", "#7570B3", "#E7298A", "#66A61E", "#E6AB02",
+               "#1D91C0", "#BABABA", "#000000")
+
+# remove the hybrid methods (that combine multiple learners) + simple CoxLasso,
+# so leaving only the homogeneous ensemble methods, i.e. method + 100 subsamplings
 p_times2 = timings_long |>
-  filter(!method %in% c("hEFS (3 RSFs)", "hEFS (9 models)")) |>
-  mutate(time = time/60) |> # convert to min
+  filter(!method %in% c("CoxLasso", "hEFS (3 RSFs)", "hEFS (9 models)")) |>
+  # remove the EFS from CoxLasso, here we keep only the model names
+  mutate(method = case_match(method, "EFS (CoxLasso)" ~ "CoxLasso", .default = method)) |>
   mutate(method = fct_reorder(method, time, .fun = median, .na_rm = TRUE, .desc = TRUE)) |>
+  mutate(time = time/60) |> # convert to min
+  mutate(omic_id = rename_omics(omic_id)) |>
   ggplot(aes(x = omic_id, y = time, fill = method)) +
   geom_boxplot(outlier.shape = NA, alpha = 0.7,
                position = position_dodge2(preserve = "single")) +
   geom_jitter(aes(color = method), show.legend = FALSE,
               position = position_jitterdodge(jitter.width = 0.5, dodge.width = 0.75),
               alpha = 0.3, size = 0.01) +
-  scale_fill_manual(values = set1_colors) +
-  scale_color_manual(values = set1_colors) +
-  theme_minimal() +
+  scale_fill_manual(values = efs_colors) +
+  scale_color_manual(values = efs_colors) +
+  theme_minimal(base_size = 14) +
   facet_wrap(
     ~ dataset_id,
     scales = "free_x",
     labeller = as_labeller(dataset_labels)
   ) +
   labs(
-    x = "Omics",
+    x = NULL, # Omics
     y = "Execution Time (minutes)",
-    fill = "FS Method",
-    title = "Execution Time of FS Methods across Omic Types"
+    fill = "Model",
+    #title = "Execution Time of FS Methods across Omic Types"
   ) +
+  ylim(0, 5) + # 5 min upper bound
   theme(
     axis.text.x = element_text(angle = 35, hjust = 1),
-    text = element_text(family = "Arial")
+    text = element_text(family = "Arial"),
+    strip.background = element_rect(fill = "lightgrey", color = NA),
+    strip.text = element_text(face = "bold", size = 12),
+    panel.spacing = unit(1, "lines"),
+    panel.border = element_rect(color = "grey80", fill = NA)
   )
-ggsave("bench/img/timings_per_learner.png", plot = p_times2, width = 7, height = 5,
+ggsave("bench/img/timings_per_learner.png", plot = p_times2, width = 8, height = 5,
        dpi = 600, bg = "white")
 
 # Redundancy (Per-Omic) ----
@@ -526,7 +627,8 @@ res_long = res |>
     method == "efs_coxlasso" ~ "EFS (CoxLasso)",
     method == "efs_all" ~ "hEFS (9 models)",
     TRUE ~ method  # there shouldn't be other categories here
-  ))
+  )) |>
+  mutate(omic_id = rename_omics(omic_id))
 
 metric_labels = c(
   pearson = "Pearson",
@@ -559,17 +661,21 @@ p_rrate_all = res_long |>
       dataset_id = as_labeller(dataset_labels))
   ) +
   labs(
-    x = "Omics",
+    x = NULL, #Omics
     y = "Redundancy Rate",
     fill = "FS Method",
-    title = "Redundancy across Omic Types and Metrics"
+    #title = "Redundancy across Omic Types and Metrics"
   ) +
   theme(
     axis.text.x = element_text(angle = 35, hjust = 1),
-    text = element_text(family = "Arial")
+    text = element_text(family = "Arial"),
+    strip.background = element_rect(fill = "lightgrey", color = NA),
+    strip.text = element_text(face = "bold", size = 12),
+    panel.spacing = unit(1, "lines"),
+    panel.border = element_rect(color = "grey80", fill = NA)
   )
 ggsave("bench/img/redundancy_rate_all_metrics.png", plot = p_rrate_all,
-       width = 7, height = 5, dpi = 600, bg = "white")
+       width = 10, height = 8, dpi = 600, bg = "white")
 
 p_rrate_xicor = res_long |>
   filter(type == "rr", metric == "xicor", !is.na(value)) |>
@@ -589,18 +695,21 @@ p_rrate_xicor = res_long |>
     labeller = labeller(dataset_id = as_labeller(dataset_labels))
   ) +
   labs(
-    x = "Omics",
-    y = "Redundancy Rate (ξ Correlation)",
+    x = NULL, # Omics
+    y = "Redundancy Rate", # (ξ Correlation)
     fill = "FS Method",
-    title = "Redundancy across Omic Types"
+    #title = "Redundancy across Omic Types"
   ) +
   theme(
     axis.text.x = element_text(angle = 35, hjust = 1),
     text = element_text(family = "Arial"),
-    legend.margin = margin(l = -20)
+    strip.background = element_rect(fill = "lightgrey", color = NA),
+    strip.text = element_text(face = "bold", size = 12),
+    panel.spacing = unit(1, "lines"),
+    panel.border = element_rect(color = "grey80", fill = NA)
   )
 ggsave("bench/img/redundancy_rate_xicor.png", plot = p_rrate_xicor,
-       width = 7, height = 5, dpi = 600, bg = "white")
+       width = 10, height = 5, dpi = 600, bg = "white")
 
 ## Significant Redundancy Proportion ----
 p_srp_all = res_long |>
@@ -624,16 +733,20 @@ p_srp_all = res_long |>
       dataset_id = as_labeller(dataset_labels))
   ) +
   labs(
-    x = "Omics",
+    x = NULL, # Omics
     y = "Significant Redundancy Proportion",
     fill = "FS Method",
-    title = "Redundancy across Omic Types and Metrics"
+    #title = "Redundancy across Omic Types and Metrics"
   ) +
   theme(
     axis.text.x = element_text(angle = 35, hjust = 1),
-    text = element_text(family = "Arial")
+    text = element_text(family = "Arial"),
+    strip.background = element_rect(fill = "lightgrey", color = NA),
+    strip.text = element_text(face = "bold", size = 12),
+    panel.spacing = unit(1, "lines"),
+    panel.border = element_rect(color = "grey80", fill = NA)
   )
-ggsave("bench/img/srp5_all_metrics.png", plot = p_srp_all, width = 7, height = 5,
+ggsave("bench/img/srp5_all_metrics.png", plot = p_srp_all, width = 10, height = 8,
        dpi = 600, bg = "white") # srp5 => due to `alpha = 0.05`
 
 p_srp5_xicor = res_long |>
@@ -654,20 +767,23 @@ p_srp5_xicor = res_long |>
     labeller = labeller(dataset_id = as_labeller(dataset_labels))
   ) +
   labs(
-    x = "Omics",
-    y = "Significant Redundancy Proportion\n(ξ Correlation)",
+    x = NULL, # Omics
+    y = "Significant Redundancy Proportion", #\n(ξ Correlation)",
     fill = "FS Method",
-    title = "Redundancy across Omic Types"
+    #title = "Redundancy across Omic Types"
   ) +
   theme(
     axis.text.x = element_text(angle = 35, hjust = 1),
-    text = element_text(family = "Arial")
+    text = element_text(family = "Arial"),
+    strip.background = element_rect(fill = "lightgrey", color = NA),
+    strip.text = element_text(face = "bold", size = 12),
+    panel.spacing = unit(1, "lines"),
+    panel.border = element_rect(color = "grey80", fill = NA)
   )
-ggsave("bench/img/srp5_xicor.png", plot = p_srp5_xicor, width = 7, height = 5,
+ggsave("bench/img/srp5_xicor.png", plot = p_srp5_xicor, width = 10, height = 5,
        dpi = 600, bg = "white")
 
 ## Adjusted Redundancy Rate ----
-
 if (FALSE) {
 # there are NA's in all scores due to feature sizes of length 1, but the following
 # are extra and are due to null distribution/expected score being `NaN`
