@@ -25,7 +25,7 @@ load_callback_subset_sizes = function() {
     sort(sample(x = n_features:2, size = size, replace = FALSE, prob = bb), decreasing = TRUE)
   }
 
-  callback_batch_fselect("mlr3fselect.rfe_subset_sizes",
+  mlr3fselect::callback_batch_fselect("mlr3fselect.rfe_subset_sizes",
      label = "Random subset sizes",
      man = "mlr3fselect::mlr3fselect.rfe_subset_sizes",
 
