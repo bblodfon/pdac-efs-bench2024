@@ -41,7 +41,7 @@ suppressPackageStartupMessages({
   library(mlr3) # 0.23
   library(mlr3extralearners) # 1.0.0
   library(mlr3proba) # 0.7.1
-  library(mlr3fselect) # 1.3.9000@b8be544, bbotk => 1.5.0
+  library(mlr3fselect) # 1.3.0.9000@b8be544, bbotk => 1.5.0
   library(mlr3tuning) # 1.2.1
   library(mlr3pipelines) # 0.7.1
   library(ranger) # 0.17.0
