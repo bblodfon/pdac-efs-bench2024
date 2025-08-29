@@ -471,7 +471,7 @@ for (meas in measures) {
       labs(
         x = "",
         y = paste0(ifelse(meas == "harrell_c", "Harrell's", "Uno's"), " C-index"),
-        title = "Compare baseline models (only clinical data)",
+        #title = "Compare baseline models (only clinical data)",
         fill = "Baseline Model"
       )
   ggsave(paste0("bench/img/", meas, "_baselines.png"), plot = p_base,
