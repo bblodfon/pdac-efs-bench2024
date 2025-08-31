@@ -268,7 +268,8 @@ if (cfg$use$XGBoost) {
 
   # per learner
   xgb_clbks = list(
-    clbk("mlr3fselect.one_se_rule"), ss_clbk,
+    clbk("mlr3fselect.one_se_rule"),
+    ss_clbk,
     clbk("mlr3fselect.internal_tuning", internal_search_space = internal_ss)
   )
 
