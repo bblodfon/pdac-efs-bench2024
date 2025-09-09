@@ -2,6 +2,10 @@
 
 This repository contains code and data for benchmarking multi-omics feature selection methods in **pancreatic ductal adenocarcinoma (PDAC)**, with a focus on survival prediction.
 
+## Citation
+
+> Zobolas, J., George, A.-M., López, A., Fischer, S., Becker, M., & Aittokallio, T. (2025). Optimizing Prognostic Biomarker Discovery in Pancreatic Cancer Through Hybrid Ensemble Feature Selection and Multi-Omics Data. https://arxiv.org/pdf/2509.02648
+
 ## Environment Setup
 
 Restore R libraries required to run the benchmark using `renv`:
