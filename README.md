@@ -1,5 +1,7 @@
 # pdac-efs-bench2024
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17084520.svg)](https://doi.org/10.5281/zenodo.17084520)
+
 This repository contains code and data for benchmarking multi-omics feature selection methods in **pancreatic ductal adenocarcinoma (PDAC)**, with a focus on survival prediction.
 
 ## Citation
