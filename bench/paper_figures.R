@@ -67,6 +67,7 @@ fig3 = plot_grid(
   label_fontfamily = "Arial"
 )
 ggsave("bench/img/fig3.png", plot = fig3, width = 13, height = 10, dpi = 600, bg = "white")
+ggsave("bench/img/fig3.pdf", plot = fig3, width = 13, height = 10, dpi = 600, bg = "white", device = cairo_pdf)
 
 # Sup. Fig. 4 ----
 # Load ensemble feature selection (EFS) results
@@ -180,12 +181,13 @@ p_srp5_xicor3 = p_srp5_xicor +
   )
 fig4 = plot_grid(p_nog3, p_srp5_xicor3, nrow = 2, labels = c("a", "b"))
 ggsave("bench/img/fig4.png", plot = fig4, width = 12, height = 9, dpi = 600, bg = "white")
+ggsave("bench/img/fig4.pdf", plot = fig4, width = 12, height = 9, dpi = 600, bg = "white", device = cairo_pdf)
 
 # Figure 5 ----
 top_row = plot_grid(p_bf2, labels = "a") # with measure as harrell_c
 
 bottom_row = plot_grid(
-  p_times + labs(legend.position = "none"),
+  p_times + theme(legend.position = "none"),
   p_times2 + theme(
     legend.position = "right",
     legend.margin = margin(l = -10, unit = "pt"),
@@ -203,6 +205,7 @@ fig5 = plot_grid(
   label_fontfamily = "Arial"
 )
 ggsave("bench/img/fig5.png", plot = fig5, width = 11, height = 8, dpi = 600, bg = "white")
+ggsave("bench/img/fig5.pdf", plot = fig5, width = 11, height = 8, dpi = 600, bg = "white", device = cairo_pdf)
 
 # Sup. Fig. 8 ----
 ## p_rsf, p_cox => both with meas = "harrell_c"
