@@ -21,7 +21,8 @@ MeasureSurvUnoAUCt = R6::R6Class("MeasureSurvUnoAUCt",
     initialize = function() {
       param_set = paradox::ps(
         time = p_dbl(0),
-        constant = p_lgl(init = TRUE) # S(t) interpolation
+        # TRUE => constant S(t) interpolation, otherwise linear interpolation
+        constant = p_lgl(init = TRUE)
       )
 
       super$initialize(
