@@ -64,11 +64,11 @@ model_data_fs_configs = c(
   # Integration Model: CoxLasso, Data: ALL => Clinical + OMICS
   "coxlasso-all",
   # Integration Model: CoxLasso, Data: ALL => Clinical + OMICS, no FS method
-  "coxlasso-all-none",
+  #"coxlasso-all-none",
   # Integration Model: RSF, Data: ALL => Clinical + OMICS
   "rsf-all",
   # Integration Model: RSF, Data: ALL => Clinical + OMICS, no FS method
-  "rsf-all-none",
+  #"rsf-all-none",
   # (Baseline) Model: CoxPH, Data: Clinical (Reference, for both datasets)
   "cox-clinical",
   # (Baseline) Model: RSF, Data: Clinical (Reference, for both datasets)
