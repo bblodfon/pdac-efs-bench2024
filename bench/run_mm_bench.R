@@ -275,7 +275,13 @@ mm_bench = function(params, p) {
                        task = task, train_set = train_set),
     brier_tmax24 = pred$score(msr("surv.graf", t_max = 24, ERV = TRUE),
                               task = task, train_set = train_set),
+    auc_t6 = pred$score(msr("surv.uno_auc_t", time = 6),
+                         task = task, train_set = train_set),
     auc_t12 = pred$score(msr("surv.uno_auc_t", time = 12),
+                         task = task, train_set = train_set),
+    auc_t18 = pred$score(msr("surv.uno_auc_t", time = 18),
+                         task = task, train_set = train_set),
+    auc_t24 = pred$score(msr("surv.uno_auc_t", time = 24),
                          task = task, train_set = train_set)
   )
 }
