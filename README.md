@@ -15,7 +15,7 @@ Restore R libraries required to run the benchmark using `renv`:
 renv::restore(exclude = c("BiocGenerics", "BiocManager", "BiocVersion", "ComplexHeatmap", "IRanges", "S4Vectors", "MASS", "ipred", "class"))
 ```
 
-Note that we mention the versions of the `R` packages used also inside the main scripts for this feature selection benchmark, so running things a bit more manually is definitely possible.
+Note that we mention the versions of the main `R` packages used [here](https://github.com/bblodfon/pdac-efs-bench2024/blob/main/bench/efs.R#L40), so executing parts of this benchmark a bit more manually is definitely possible.
 
 ## Data and Preprocessing
 
