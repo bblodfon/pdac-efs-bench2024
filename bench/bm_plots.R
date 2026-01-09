@@ -3,7 +3,7 @@
 #' using multi-omics data from three PDAC cancer cohorts (Cao et al. 2021,
 #' Wissel et al. 2023, Osipov et al. 2024).
 #' The focus is on evaluating `sparsity`, omic-level `contribution`, and `predictivity`
-#' (C-index, ISBS) of selected features under various FS strategies.
+#' (C-index, ISBS, AUC(t)) of selected features under various FS strategies.
 #'
 #' Execute: `Rscript bench/bm_plots.R` (from project root).
 
@@ -18,11 +18,11 @@ suppressPackageStartupMessages({
 
 # Benchmark results ----
 result = readRDS(file = "bench/result.rds")
+# A re-run of the above with a bit less configurations from `bm_plots.R`, and including
+# the AUC(t) results. Every other result is the same.
+result = readRDS(file = "bench/result_auc.rds")
 
 # dataset labels
-#osipov_abbrev = "Osipov et al. (2024)"
-#wissel_abbrev = "Wissel et al. (2023)"
-#cao_abbrev    = "Cao et al. (2021)"
 osipov_abbrev = "MolTwin"
 wissel_abbrev = "TCGA"
 cao_abbrev    = "CPTAC"
@@ -78,7 +78,7 @@ result |> group_by(dataset_id, model, fs_method_id) |> count() |> print(n = 100)
 
 # Convert data to long format for ggplot
 result_long = result |>
-  pivot_longer(cols = c(harrell_c, uno_c, brier_tmax24),
+  pivot_longer(cols = c(harrell_c, uno_c, brier_tmax24, auc_t6, auc_t12, auc_t18, auc_t24),
                names_to = "measure", values_to = "value")
 
 # useful for filtering later - without "no FS" or "Baselines"
@@ -218,12 +218,13 @@ result_long |>
   summarize(cindex = median(value), .groups = "drop") |>
   arrange(desc(cindex))
 
-measures = c("harrell_c", "uno_c") # note: Uno's results similar to Harrell's C
+# measures = c("harrell_c", "uno_c") # note: Uno's results similar to Harrell's C
+measures = "harrell_c"
 fs_colors = c(custom_colors, "Baseline" = set1_colors[9], "no FS" = set1_colors[5])
 
 ## CoxLasso (integration model) ----
 for (meas in measures) {
-  for (keep_nofs in c(TRUE, FALSE)) {
+  for (keep_nofs in c(TRUE, FALSE)) { # just FALSE for paper figure
     res_cox =
       result_long |>
       filter(measure == !!meas) |>
@@ -241,7 +242,7 @@ for (meas in measures) {
       ggplot(aes(x = fs_method_id, y = value, fill = fs_method_id)) +
       geom_boxplot(outlier.shape = NA, alpha = 0.7) +
       geom_jitter(aes(color = fs_method_id), show.legend = FALSE,
-                  position = position_jitterdodge(jitter.width = 1.2, dodge.width = 0.75),
+                  position = position_jitterdodge(jitter.width = 0.7, dodge.width = 0.75),
                   alpha = 0.7, size = 0.01) +
       geom_hline(yintercept = 0.5, color = "red", linetype = "dashed", linewidth = 0.8) +
       facet_wrap(
@@ -299,7 +300,7 @@ for (meas in measures) {
 
 ## RSF (integration model) ----
 for (meas in measures) {
-  for (keep_nofs in c(TRUE, FALSE)) {
+  for (keep_nofs in c(TRUE, FALSE)) { # just FALSE for paper figure
     res_rsf =
       result_long |>
       filter(measure == !!meas) |>
@@ -314,7 +315,7 @@ for (meas in measures) {
       ggplot(aes(x = fs_method_id, y = value, fill = fs_method_id)) +
       geom_boxplot(outlier.shape = NA, alpha = 0.7) +
       geom_jitter(aes(color = fs_method_id), show.legend = FALSE,
-                  position = position_jitterdodge(jitter.width = 1.2, dodge.width = 0.75),
+                  position = position_jitterdodge(jitter.width = 0.7, dodge.width = 0.75),
                   alpha = 0.7, size = 0.01) +
       geom_hline(yintercept = 0.5, color = "red", linetype = "dashed", linewidth = 0.8) +
       facet_wrap(
@@ -370,7 +371,7 @@ for (meas in measures) {
 
 ## BlockForest (integration model) ----
 for (meas in measures) {
-  for (keep_nofs in c(TRUE, FALSE)) {
+  for (keep_nofs in c(TRUE, FALSE)) { # just FALSE for paper figure
     res_bf =
       result_long |>
       filter(measure == !!meas) |>
@@ -385,7 +386,7 @@ for (meas in measures) {
       ggplot(aes(x = fs_method_id, y = value, fill = fs_method_id)) +
       geom_boxplot(outlier.shape = NA, alpha = 0.7) +
       geom_jitter(aes(color = fs_method_id), show.legend = FALSE,
-                  position = position_jitterdodge(jitter.width = 1.2, dodge.width = 0.75),
+                  position = position_jitterdodge(jitter.width = 0.7, dodge.width = 0.75),
                   alpha = 0.7, size = 0.01) +
       geom_hline(yintercept = 0.5, color = "red", linetype = "dashed", linewidth = 0.8) +
       facet_wrap(
@@ -439,7 +440,8 @@ for (meas in measures) {
   }
 }
 
-## Baselines only ----
+## Baselines ----
+# Cox + RSF with only clinical data
 for (meas in measures) {
   p_base = result_long |>
     filter(measure == meas, fs_method_id == "Baseline") |>
@@ -474,60 +476,11 @@ for (meas in measures) {
         #title = "Compare baseline models (only clinical data)",
         fill = "Baseline Model"
       )
-  ggsave(paste0("bench/img/", meas, "_baselines.png"), plot = p_base,
+  ggsave(paste0("bench/img/", meas, "_baselines_new.png"), plot = p_base,
          width = 7, height = 5, dpi = 600, bg = "white")
 }
 
-## ALL vs GEX+Clinical vs Clinical (CPTAC and TCGA) ----
-## also sup.Fig.9
-# included_models = c(
-#   "RSF (ALL)", "RSF (Clinical)", "RSF (GEX)", "RSF (Clinical + GEX)",
-#   "BlockForest (ALL)",  "BlockForest (Clinical + GEX)"
-# )
-included_models = c(
-  "RSF (Clinical)", "RSF (GEX)",
-  "BlockForest (ALL)",  "BlockForest (Clinical + GEX)"
-)
-
-p_cmps = result_long |>
-  # Harrell's C-index and Wissel or Cao datasets only (which have GEX data)
-  filter(dataset_id %in% c("wissel2023", "cao2021"), measure == "harrell_c") |>
-  filter(model %in% included_models) |>
-  filter(fs_method_id %in% c("hEFS (9 models)", "Baseline", "no FS")) |>
-  # model => BlockForest (ALL) has 2 fs_methods, change name for one of them
-  mutate(model = case_match(fs_method_id, "no FS" ~ "BlockForest (ALL, no FS)", .default = model)) |>
-  mutate(model = fct_reorder(model, value, .fun = median, .desc = TRUE)) |>
-  ggplot(aes(x = model, y = value, fill = model)) +
-    geom_boxplot(outlier.shape = NA, alpha = 0.7) +
-    geom_jitter(aes(color = model), width = 0.2, alpha = 0.5, size = 0.7, show.legend = FALSE) +
-    facet_wrap(
-      ~ dataset_id,
-      labeller = as_labeller(dataset_labels)
-    ) +
-    geom_hline(yintercept = 0.5, color = "red", linetype = "dashed", linewidth = 0.8) +
-    scale_color_brewer(palette = "Set1") +
-    scale_fill_brewer(palette = "Set1") +
-    ylim(c(0, 1)) +
-    theme_minimal(base_size = 14) +
-    theme(
-      axis.text.x = element_blank(),
-      text = element_text(family = "Arial"),
-      strip.background = element_rect(fill = "lightgrey", color = NA),
-      strip.text = element_text(face = "bold", size = 12),
-      panel.spacing = unit(1, "lines"),
-      panel.border = element_rect(color = "grey80", fill = NA)
-    ) +
-    labs(
-      x = "",
-      y = "Harrell's C-index",
-      #title = "Single-omic vs Multi-omics",
-      #subtitle = "hEFS applied for GEX and ALL omics",
-      fill = "Model (Data)"
-    )
-ggsave("bench/img/harrell_c_cmps.png", plot = p_cmps, width = 7, height = 4,
-        dpi = 600, bg = "white")
-
-# Predictivity (ISBS) ----
+# Investigation: Predictivity (ISBS) ----
 p_isbs = result_long |>
   filter(measure == "brier_tmax24") |>
   ggplot(aes(x = fs_method_id, y = value, fill = model)) +
@@ -559,3 +512,207 @@ p_isbs = result_long |>
     panel.border = element_rect(color = "grey80", fill = NA)
   )
 ggsave("bench/img/isbs.png", plot = p_isbs, width = 12, height = 6, dpi = 600, bg = "white")
+
+# Investigation: Predictivity (AUC) ----
+measures = c("auc_t6", "auc_t12", "auc_t18", "auc_t24")
+
+measure_map = c(
+  auc_t6  = "t = 6 months",
+  auc_t12 = "t = 12 months",
+  auc_t18 = "t = 18 months",
+  auc_t24 = "t = 24 months"
+)
+
+# ALL AUC(t) in one
+result_long |>
+  filter(measure %in% measures) |>
+  mutate(
+    measure = factor(
+      measure,
+      levels = names(measure_map),
+      labels = measure_map
+    )
+  ) |>
+  ggplot(aes(x = fs_method_id, y = value, fill = model)) +
+  geom_boxplot(alpha = 0.7, outlier.shape = NA) +
+  geom_jitter(aes(color = model), show.legend = FALSE,
+              position = position_jitterdodge(jitter.width = 0.2, dodge.width = 0.75),
+              alpha = 0.7, size = 0.01) +
+  scale_fill_manual(values = set1_colors) +
+  scale_color_manual(values = set1_colors) +
+  geom_hline(yintercept = 0.5, color = "red", linetype = "dashed", linewidth = 0.8) +
+  theme_minimal(base_size = 14) +
+  facet_grid(
+    measure ~ dataset_id,
+    labeller = labeller(dataset_id = as_labeller(dataset_labels)),
+  ) +
+  labs(
+    x = "Feature Selection Method",
+    y = "AUC(t)",
+    fill = "Integration Model (Data)"
+  ) +
+  ylim(c(0, 1)) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    text = element_text(family = "Arial"),
+    legend.position = "top",
+    strip.background = element_rect(fill = "lightgrey", color = NA),
+    strip.text = element_text(face = "bold", size = 12),
+    panel.spacing = unit(1, "lines"),
+    panel.border = element_rect(color = "grey80", fill = NA)
+  )
+
+# Sup. Fig. 9 ----
+# choose one time point, t = 12 months seems reasonable
+meas = "auc_t12"
+
+# convenience function
+plot_auc_fs = function(data, meas, model_keep, label_left, label_right,
+                       ylab = "AUC (t = 12 months)") {
+  data |>
+    filter(measure == !!meas) |>
+    filter(fs_method_id != "no FS") |>
+    filter(model %in% model_keep) |>
+    mutate(
+      fs_method_id = factor(fs_method_id, levels = c("Baseline", fs_method_ids, "no FS"))
+    ) |>
+    ggplot(aes(x = fs_method_id, y = value, fill = fs_method_id)) +
+    geom_boxplot(outlier.shape = NA, alpha = 0.7) +
+    geom_jitter(aes(color = fs_method_id), show.legend = FALSE,
+                position = position_jitterdodge(jitter.width = 0.7, dodge.width = 0.75),
+                alpha = 0.7, size = 0.01) +
+    geom_hline(yintercept = 0.5, color = "red", linetype = "dashed", linewidth = 0.8) +
+    geom_vline(xintercept = 1.5, linetype = "dotted", color = "black", linewidth = 0.8) +
+    facet_wrap(
+      ~ dataset_id,
+      labeller = as_labeller(dataset_labels)
+    ) +
+    scale_fill_manual(
+      values = fs_colors,
+      breaks = c(fs_method_ids, "no FS")
+    ) +
+    scale_color_manual(
+      values = fs_colors,
+      breaks = c(fs_method_ids, "no FS")
+    ) +
+    ylim(c(0, 1)) +
+    labs(x = "", y = ylab, fill = "FS Method") +
+    annotate(
+      "text", x = 1, y = 0.95,
+      label = label_left,
+      size = 4, hjust = 0.5, family = "Arial"
+    ) +
+    annotate(
+      "text", x = 3.5, y = 0.95,
+      label = label_right,
+      size = 4, hjust = 0.5, family = "Arial"
+    ) +
+    theme_minimal(base_size = 14) +
+    theme(
+      axis.text.x = element_blank(),
+      legend.position = "bottom",
+      legend.box = "horizontal",
+      legend.margin = margin(t = -20),
+      text = element_text(family = "Arial"),
+      strip.background = element_rect(fill = "lightgrey", color = NA),
+      strip.text = element_text(face = "bold", size = 12),
+      panel.spacing = unit(1, "lines"),
+      panel.border = element_rect(color = "grey80", fill = NA)
+    )
+}
+
+# CoxLasso Integration
+p_auc_cox = plot_auc_fs(
+  data = result_long,
+  meas = meas,
+  model_keep = c("CoxLasso (ALL)", "Cox (Clinical)"),
+  label_left  = "CoxPH\n(Clinical)",
+  label_right = "CoxLasso\n(Clinical + Multi-omics)"
+)
+
+# RSF Integration
+p_auc_rsf = plot_auc_fs(
+  data = result_long,
+  meas = meas,
+  model_keep = c("RSF (ALL)", "RSF (Clinical)"),
+  label_left  = "RSF\n(Clinical)",
+  label_right = "RSF\n(Clinical + Multi-omics)"
+)
+
+# BlockForest Integration
+p_auc_bf = plot_auc_fs(
+  data = result_long,
+  meas = meas,
+  model_keep = c("BlockForest (ALL)", "RSF (Clinical)"),
+  label_left  = "RSF\n(Clinical)",
+  label_right = "BlockForest\n(Clinical + Multi-omics)"
+)
+
+supfig9 = plot_grid(
+  p_auc_rsf + theme(legend.position = "none"),
+  p_auc_cox + theme(legend.position = "none"),
+  p_auc_bf,
+  labels = c("a", "b", "c"),
+  nrow = 3,
+  rel_heights = c(1, 1, 1),
+  label_fontfamily = "Arial"
+)
+ggsave("bench/img/fig_s9.png", plot = supfig9, width = 11, height = 10, dpi = 600, bg = "white")
+
+# Sup. Fig. 10 ----
+## Here we compare a few selected configurations, i.e. using clinical only data,
+## clinical and GEX data, with and without hEFS on GEX, as well as using all
+## available omics + clinical data, with and without FS.
+## Two measures are used, C-index and AUC(t = 12 months).
+included_models = c(
+  "RSF (Clinical)", "RSF (GEX)",
+  "BlockForest (ALL)", "BlockForest (Clinical + GEX)"
+)
+
+p_cmps = result_long |>
+  filter(
+    dataset_id %in% c("wissel2023", "cao2021"), # two datasets
+    measure %in% c("harrell_c", "auc_t12"), # two measures
+    model %in% included_models,
+    fs_method_id %in% c("hEFS (9 models)", "Baseline", "no FS")
+  ) |>
+  # model == `BlockForest (ALL)` has 2 `fs_method_id`s (one with FS and one without),
+  mutate(
+    model = case_match(
+      fs_method_id, "no FS" ~ "BlockForest (ALL, no FS)",
+      .default = model),
+    model = fct_reorder(model, value, .fun = median, .desc = TRUE)
+  ) |>
+  mutate(
+    measure = factor(measure, levels = c("harrell_c", "auc_t12"))
+  ) |>
+  ggplot(aes(x = model, y = value, fill = model)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.7) +
+  geom_jitter(aes(color = model), width = 0.2, alpha = 0.5, size = 0.7, show.legend = FALSE) +
+  facet_grid(
+    rows = vars(measure),
+    cols = vars(dataset_id),
+    labeller = labeller(
+      dataset_id = dataset_labels,
+      measure = c(
+        harrell_c = "Harrell’s C-index",
+        auc_t12   = "Uno’s AUC (12 months)"
+      )
+    )
+  ) +
+  geom_hline(yintercept = 0.5, color = "red", linetype = "dashed", linewidth = 0.8) +
+  scale_color_brewer(palette = "Set1") +
+  scale_fill_brewer(palette = "Set1") +
+  ylim(c(0, 1)) +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.x = element_blank(),
+    text = element_text(family = "Arial"),
+    strip.background = element_rect(fill = "lightgrey", color = NA),
+    strip.text = element_text(face = "bold", size = 12),
+    panel.spacing = unit(1, "lines"),
+    panel.border = element_rect(color = "grey80", fill = NA)
+  ) +
+  labs(fill = "Model (Data)", x = "", y = "")
+ggsave("bench/img/fig_s10.png", plot = p_cmps, width = 9, height = 8,
+       dpi = 600, bg = "white")
