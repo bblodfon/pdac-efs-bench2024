@@ -1,13 +1,15 @@
-library(R6)
-library(mlr3) # 0.23 version
-library(survival)
-library(mlr3proba) # 0.7.1 version
-library(mlr3extralearners) # for surv.ranger
-library(paradox)
-library(survAUC) # 1.4.0
-library(mlr3misc)
-library(checkmate)
-library(survdistr) # 0.0.1@d7babd1
+suppressPackageStartupMessages({
+  library(R6)
+  library(mlr3) # 0.23 version
+  library(survival)
+  library(mlr3proba) # 0.7.1 version
+  library(mlr3extralearners) # for surv.ranger
+  library(paradox)
+  library(survAUC) # 1.4.0
+  library(mlr3misc)
+  library(checkmate)
+  library(survdistr) # 0.0.1@d7babd1
+})
 
 # Define new mlr3(proba) measure that calls `survAUC::AUC.uno()`
 # and gets ROC-AUC(t0) at a specific time point t0, using as predictor
