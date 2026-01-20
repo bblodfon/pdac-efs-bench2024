@@ -80,7 +80,7 @@ file_name = file.path("bench", "efs", "wissel2023", "cnv", "efs_7.rds")
 efs1 = readRDS(file_name)
 kp1 = efs1$knee_points(type = "estimated") # 15
 
-res1 = efs$.__enclos_env__$private$.result
+res1 = efs1$.__enclos_env__$private$.result
 
 # Rename learner_id
 rename_map = c(
