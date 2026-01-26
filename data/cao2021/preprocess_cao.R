@@ -215,28 +215,6 @@ sum(gex_tbl < 0) # normalized counts, always > 0
 any(is.na(gex_tbl)) # no NAs
 sum(apply(gex_tbl, 2, var, na.rm = TRUE) == 0) # some constant features in here
 
-# Keep 10,000 highest variance genes for further analyses and FS
-features_to_keep =
-  apply(gex_tbl, 2, var) |>
-  sort(decreasing = TRUE) |>
-  names() |>
-  head(n = 10000)
-
-gex_tbl_flt = gex_tbl |> select(all_of(features_to_keep))
-dim(gex_tbl_flt)
-# filter and re-order gex data by matching patient IDs according to clinical data
-gex_tbl_flt = gex_tbl_flt[match(clin_pids, gex_pids), , drop = FALSE]
-
-data = bind_cols(
-  patient_id = clinical$patient_id,
-  time = clinical$time,
-  status = clinical$status,
-  gex_tbl_flt
-)
-gex_task = as_task_surv(x = data, time = "time", event = "status", id = "gex")
-gex_task$set_col_roles(cols = "patient_id", roles = "name")
-saveRDS(gex_task, file = file.path(data_dir, "gex_task10000.rds"))
-
 ## CNV ----
 #' Note: we have added a `names` string in the 1st line, 1st column of the file
 #' for easier column name parsing

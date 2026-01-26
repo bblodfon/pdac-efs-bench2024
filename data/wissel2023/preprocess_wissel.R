@@ -151,39 +151,6 @@ mlr3misc::map(data_list, function(.data) {
   .data |> as.matrix() |> as.vector() |> is.na() |> sum()
 })
 
-# Non-filtered OMICS ----
-# Here we keep some omics with all features for further analyses
-survival_outcome = clinical |> select(patient_id, time, status)
-
-## GEX
-gex_data = data_list$gex
-
-# remove constant features
-feats_to_exclude = names(which(apply(gex_data, 2, var, na.rm = TRUE) == 0))
-#gex_data = gex_data |> select(-all_of(feats_to_exclude))
-
-# keep the 10000 most variant genes
-features_to_keep =
-  apply(gex_data, 2, var) |>
-  sort(decreasing = TRUE) |>
-  names() |>
-  head(n = 10000)
-
-gex_data = gex_data |> select(all_of(features_to_keep))
-data = bind_cols(survival_outcome, gex_data)
-gex_task = as_task_surv(x = data, time = "time", event = "status", id = "gex")
-gex_task$set_col_roles(cols = "patient_id", roles = "name")
-saveRDS(gex_task, file = file.path(dataset_path, "gex_task10000.rds"))
-
-## Mutation
-mut_data = data_list$mutation
-feats_to_exclude = names(which(apply(mut_data, 2, var, na.rm = TRUE) == 0)) # remove constant features
-mut_data = mut_data |> select(-all_of(feats_to_exclude)) # < 10000 features remain
-data = bind_cols(survival_outcome, mut_data)
-mut_task = as_task_surv(x = data, time = "time", event = "status", id = "mutation")
-mut_task$set_col_roles(cols = "patient_id", roles = "name")
-saveRDS(mut_task, file = file.path(dataset_path, "mut_task.rds"))
-
 # PRE-FILTER (variance) ----
 # keep only the top 2000 features with the highest variance per omic
 n_features = 2000
