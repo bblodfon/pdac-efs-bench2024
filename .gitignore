@@ -16,6 +16,7 @@ bench/efs/*
 test/*
 bench/fs/*
 bench/log
+bench/img/*
 efs/tree_efs.rds
 server_bench_data/
 Rplots.pdf
