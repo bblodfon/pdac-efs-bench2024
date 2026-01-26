@@ -17,10 +17,6 @@ renv::restore(exclude = c("BiocGenerics", "BiocManager", "BiocVersion", "Complex
 
 **`R` packages versions** are available [here](https://github.com/bblodfon/pdac-efs-bench2024/blob/main/bench/efs.R#L40), if executing more manually is desired.
 
-## Number of CV folds investigation
-
-See [`cv_res/`](https://github.com/bblodfon/pdac-efs-bench2024/tree/main/cv_res).
-
 ## Data and Preprocessing
 
 We use 3 multi-omics PDAC datasets. Preprocessing steps include:
