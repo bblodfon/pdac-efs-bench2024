@@ -15,7 +15,11 @@ Restore R libraries required to run the benchmark using `renv`:
 renv::restore(exclude = c("BiocGenerics", "BiocManager", "BiocVersion", "ComplexHeatmap", "IRanges", "S4Vectors", "MASS", "ipred", "class"))
 ```
 
-Note that we mention the versions of the main `R` packages used [here](https://github.com/bblodfon/pdac-efs-bench2024/blob/main/bench/efs.R#L40), so executing parts of this benchmark a bit more manually is definitely possible.
+**`R` packages versions** are available [here](https://github.com/bblodfon/pdac-efs-bench2024/blob/main/bench/efs.R#L40), if executing more manually is desired.
+
+## Number of CV folds investigation
+
+See [`cv_res/`](https://github.com/bblodfon/pdac-efs-bench2024/tree/main/cv_res).
 
 ## Data and Preprocessing
 
@@ -28,7 +32,7 @@ We use 3 multi-omics PDAC datasets. Preprocessing steps include:
 
 All related code and metadata are found in the [`data/`](https://github.com/bblodfon/pdac-efs-bench2024/tree/main/data) directory.
 
-## Multi-omics Benchmark Overview
+## Multi-omics Benchmark
 
 The benchmarking pipeline consists of three main steps, see also the `bench/` directory.
 
@@ -67,4 +71,9 @@ Output: [`bench/result.rds`](https://github.com/bblodfon/pdac-efs-bench2024/blob
 - `model_data_config`: Configuration used for model training, indicating the model type and which omics and/or clinical data were included (`ALL` means clinical + all omics, `Clinical + GEX` means configuration used only clinical and gene expression data, etc.)
 - `task_nfeats`: Number of selected features used in the dataset
 - `task_feats`: The specific features that were selected
-- Performance scores for the test sets (Harrell's C-index, etc.)
+- Performance scores for the test sets (Harrell's C-index, Uno's AUC, etc.)
+
+## Number of CV folds investigation
+
+See [`cv_res/`](https://github.com/bblodfon/pdac-efs-bench2024/tree/main/cv_res).
+
