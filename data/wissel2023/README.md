@@ -6,6 +6,7 @@ Wissel et al. (2023) Systematic comparison of multi-omics survival models reveal
 
 ## Files
 
+- `clinical.project-tcga-paad.2025-03-05.tar.gz` + `pathology_detail.tsv`: pathology data for TCGA patiens from GDC
 - `metadata.csv`: metadata info
 - `preprocess_wissel.R`: the preprocessing script
 - `all_data_preprocessed.csv`: preprocessed data from all patients and data types
